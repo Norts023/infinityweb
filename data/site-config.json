@@ -24,7 +24,17 @@
       }
     ]
   },
-  "avisos": [],
+  "avisos": [
+    {
+      "id": "n_1779666882157",
+      "tipo": "instabilidade",
+      "regiao": "Jordanesia",
+      "titulo": "Instabilidade na rede",
+      "mensagem": "vamos retornar a rede em algumas horas",
+      "ativo": true,
+      "criado_em": "24/05/2026, 20:54:42"
+    }
+  ],
   "contato": {
     "whatsapp": "5511964012136",
     "whatsapp_display": "(11) 96401-2136",
@@ -33,6 +43,11 @@
     "endereco": "Rua Vereador Mário Marcolongo, 193, Jordanesia — Cajamar-SP"
   },
   "cobertura": {
-    "regioes": ["Jordanesia", "Cajamar Centro", "Região Industrial", "Polvilho"]
+    "regioes": [
+      "Jordanesia",
+      "Cajamar Centro",
+      "Região Industrial",
+      "Polvilho"
+    ]
   }
 }
