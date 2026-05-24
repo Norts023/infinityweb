@@ -567,44 +567,48 @@
 
 .coverage-check-btn { width: 100%; justify-content: center; padding: 16px; font-size: 1rem; }
 
-/** Placeholder estilizado do mapa */
-.map-placeholder {
-  background: linear-gradient(135deg, var(--blue-800), var(--blue-900));
+/** Mapa interativo Leaflet.js */
+.coverage-map {
   border-radius: var(--radius-xl);
   overflow: hidden;
   aspect-ratio: 4/3;
-  position: relative;
+  min-height: 380px;
+  box-shadow: var(--shadow-xl);
+  border: 2px solid var(--blue-100);
+}
+
+/** Marcador customizado nas cores da Infinity Web */
+.iw-marker-pin {
+  width: 40px;
+  height: 40px;
+  background: var(--blue-600);
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: var(--shadow-lg);
+  border: 3px solid var(--white);
 }
-.map-placeholder::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at 60% 40%, rgba(249,115,22,.2), transparent 50%),
-    radial-gradient(circle at 20% 70%, rgba(37,99,196,.3), transparent 50%);
+.iw-marker-pin i {
+  transform: rotate(45deg);
+  color: var(--white);
+  font-size: .85rem;
 }
-
-.map-content { position: relative; z-index: 1; text-align: center; color: var(--white); padding: 32px; }
-.map-content i    { font-size: 4rem; color: var(--orange); margin-bottom: 16px; }
-.map-content h3   { font-size: 1.3rem; font-weight: 700; margin-bottom: 8px; }
-.map-content p    { font-size: .9rem; color: rgba(255,255,255,.6); margin-bottom: 20px; }
-
-/** Ponto animado de localização no mapa */
-.map-dot {
-  width: 14px;
-  height: 14px;
-  background: var(--orange);
+.iw-marker-pulse {
+  width: 16px;
+  height: 16px;
+  background: rgba(29, 78, 216, .35);
   border-radius: 50%;
-  margin: 0 auto;
-  box-shadow: 0 0 0 6px rgba(249,115,22,.3);
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
   animation: ping 2s cubic-bezier(0, 0, .2, 1) infinite;
 }
 @keyframes ping {
-  0%   { box-shadow: 0 0 0 0 rgba(249,115,22,.7); }
-  100% { box-shadow: 0 0 0 20px transparent; }
+  0%   { box-shadow: 0 0 0 0 rgba(29,78,216,.6); }
+  100% { box-shadow: 0 0 0 18px transparent; }
 }
 
 /* =============================================================
