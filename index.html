@@ -43,8 +43,11 @@
   <!-- ── Ícones ─────────────────────────────────────────────────────── -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 
+  <!-- ── Leaflet.js: mapa interativo da área de cobertura ─────────── -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" crossorigin="anonymous" />
+
   <!-- ── DOMPurify: sanitização XSS de respostas da IA (CWE-79) ───── -->
- <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js" crossorigin="anonymous"></script>
 
   <!-- ── Folhas de estilo (ordem importa!) ──────────────────────────── -->
   <link rel="stylesheet" href="assets/css/variables.css" />   <!-- 1. Tokens globais -->
@@ -569,15 +572,8 @@
   <section class="coverage" id="cobertura" aria-labelledby="coverage-title">
     <div class="container">
       <div class="coverage-layout">
-        <!-- Placeholder do mapa (visível apenas em desktop) -->
-        <div class="map-placeholder" aria-hidden="true">
-          <div class="map-content">
-            <i class="fas fa-map-marked-alt"></i>
-            <h3>Área de Cobertura</h3>
-            <p>Atendemos Jordanesia, Cajamar e regiões próximas com fibra óptica de alta velocidade.</p>
-            <div class="map-dot"></div>
-          </div>
-        </div>
+        <!-- Mapa interativo Leaflet.js + OpenStreetMap -->
+        <div class="coverage-map" id="coverageMap" aria-label="Mapa da área de cobertura Infinity Web em Cajamar-SP"></div>
 
         <div class="coverage-right">
           <div class="badge"><i class="fas fa-map-marker-alt" aria-hidden="true"></i> Cobertura</div>
@@ -928,6 +924,61 @@
   <script src="assets/js/plans.js"></script>        <!-- Tabs de planos -->
   <script src="assets/js/form.js"></script>          <!-- Formulário de contato -->
   <script src="assets/js/chat.js"></script>          <!-- Widget de IA (Groq) -->
+
+  <!-- ── Leaflet.js + inicialização do mapa de cobertura ──────────── -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" crossorigin="anonymous"></script>
+  <script>
+    (function () {
+      var mapEl = document.getElementById('coverageMap');
+      if (!mapEl || typeof L === 'undefined') return;
+
+      /* Coordenadas centrais: Jordanesia — Cajamar-SP */
+      var LAT = -23.3635, LNG = -46.8748;
+
+      var map = L.map('coverageMap', {
+        center:          [LAT, LNG],
+        zoom:            14,
+        scrollWheelZoom: false,   /* evita scroll acidental na página */
+        zoomControl:     true,
+      });
+
+      /* Tiles OpenStreetMap — gratuito, sem chave de API */
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+      }).addTo(map);
+
+      /* Ícone personalizado nas cores da Infinity Web */
+      var markerIcon = L.divIcon({
+        className: 'iw-marker',
+        html: '<div class="iw-marker-pin"><i class="fas fa-wifi"></i></div><div class="iw-marker-pulse"></div>',
+        iconSize:   [40, 40],
+        iconAnchor: [20, 40],
+        popupAnchor:[0, -42],
+      });
+
+      /* Marcador principal — sede da empresa */
+      L.marker([LAT, LNG], { icon: markerIcon })
+        .addTo(map)
+        .bindPopup(
+          '<strong>Infinity Web</strong><br>' +
+          'Rua Ver. Mário Marcolongo, 193<br>' +
+          'Jordanesia — Cajamar-SP<br>' +
+          '<a href="https://wa.me/5511964012136" target="_blank" rel="noopener noreferrer" style="color:#f97316">WhatsApp (11) 96401-2136</a>',
+          { maxWidth: 200 }
+        )
+        .openPopup();
+
+      /* Círculo indicando área de cobertura aproximada (~3 km de raio) */
+      L.circle([LAT, LNG], {
+        radius:      3000,
+        color:       '#1d4ed8',
+        fillColor:   '#3b82f6',
+        fillOpacity: 0.12,
+        weight:      2,
+      }).addTo(map);
+    })();
+  </script>
 
 </body>
 </html>
