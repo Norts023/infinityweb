@@ -10,3 +10,9 @@
   from = "/api/chat"
   to   = "/.netlify/functions/groq-proxy"
   status = 200
+
+# Rota para a API do painel administrativo
+[[redirects]]
+  from = "/api/admin"
+  to   = "/.netlify/functions/admin-api"
+  status = 200

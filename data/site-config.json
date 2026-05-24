@@ -1,0 +1,38 @@
+{
+  "planos": {
+    "residencial": [
+      {
+        "id": "res-basico",
+        "nome": "Residencial Básico",
+        "velocidade": "300 Mega",
+        "preco": "99,99",
+        "destaque": false
+      },
+      {
+        "id": "res-plus",
+        "nome": "Residencial Plus",
+        "velocidade": "400 Mega",
+        "preco": "119,99",
+        "destaque": true
+      },
+      {
+        "id": "res-ultra",
+        "nome": "Residencial Ultra",
+        "velocidade": "650 Mega",
+        "preco": "159,99",
+        "destaque": false
+      }
+    ]
+  },
+  "avisos": [],
+  "contato": {
+    "whatsapp": "5511964012136",
+    "whatsapp_display": "(11) 96401-2136",
+    "telefone": "(11) 99951-7145",
+    "email": "sandro@webinfinity.com.br",
+    "endereco": "Rua Vereador Mário Marcolongo, 193, Jordanesia — Cajamar-SP"
+  },
+  "cobertura": {
+    "regioes": ["Jordanesia", "Cajamar Centro", "Região Industrial", "Polvilho"]
+  }
+}

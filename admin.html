@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<!--
+  admin.html — Painel Administrativo da Infinity Web
+  ===================================================
+  Funciona 100% no Netlify (sem PHP).
+  Salva configurações via GitHub API → dispara redeploy automático.
+
+  Variáveis de ambiente necessárias no Netlify:
+    ADMIN_PASSWORD   — senha de acesso ao painel
+    GITHUB_TOKEN     — Personal Access Token (repo → Contents: Write)
+    GITHUB_REPO      — ex: Norts023/infinityweb
+-->
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Infinity Web — Painel Admin</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" />
+  <style>
+    :root {
+      --blue-900: #0f172a; --blue-800: #1e3a5f; --blue-700: #1d4ed8;
+      --blue-600: #2563eb; --blue-500: #3b82f6; --blue-100: #dbeafe;
+      --orange: #f97316; --white: #ffffff;
+      --gray-900: #111827; --gray-800: #1f2937; --gray-700: #374151;
+      --gray-600: #4b5563; --gray-500: #6b7280; --gray-400: #9ca3af;
+      --gray-300: #d1d5db; --gray-200: #e5e7eb; --gray-100: #f3f4f6;
+      --green: #10b981; --red: #ef4444; --yellow: #f59e0b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--gray-900); color: var(--gray-100); min-height: 100vh; }
+
+    /* ── Login ── */
+    .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--blue-900), var(--gray-900)); padding: 24px; }
+    .login-card { background: var(--gray-800); border-radius: 16px; padding: 48px; width: 100%; max-width: 400px; border: 1px solid var(--gray-700); box-shadow: 0 25px 50px rgba(0,0,0,.5); }
+    .login-logo { text-align: center; margin-bottom: 32px; }
+    .login-logo .brand { font-size: 2rem; font-weight: 900; color: var(--white); }
+    .login-logo .brand em { color: var(--orange); font-style: normal; }
+    .login-logo p { color: var(--gray-400); font-size: 0.85rem; margin-top: 6px; }
+
+    /* ── Form elements ── */
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; font-size: 0.78rem; font-weight: 700; color: var(--gray-400); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .06em; }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%; background: var(--gray-700); border: 1px solid var(--gray-600);
+      border-radius: 8px; padding: 11px 14px; color: var(--white); font-size: 0.93rem;
+      outline: none; transition: border-color .2s; font-family: inherit;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--blue-500); }
+    .form-group textarea { resize: vertical; min-height: 80px; }
+    .form-group select option { background: var(--gray-700); }
+
+    /* ── Buttons ── */
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 8px; border: none; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all .2s; font-family: inherit; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-primary  { background: var(--blue-600); color: var(--white); }
+    .btn-primary:hover:not(:disabled)  { background: var(--blue-700); }
+    .btn-success  { background: var(--green); color: var(--white); }
+    .btn-success:hover:not(:disabled)  { opacity: .9; }
+    .btn-danger   { background: var(--red); color: var(--white); }
+    .btn-danger:hover:not(:disabled)   { opacity: .85; }
+    .btn-outline  { background: transparent; border: 1px solid var(--gray-600); color: var(--gray-400); }
+    .btn-outline:hover { border-color: var(--gray-400); color: var(--white); }
+    .btn-full { width: 100%; justify-content: center; }
+    .btn-sm { padding: 6px 12px; font-size: .82rem; }
+
+    /* ── Alerts ── */
+    .alert { padding: 12px 16px; border-radius: 8px; font-size: .88rem; margin-bottom: 16px; }
+    .alert-error   { background: rgba(239,68,68,.15);  color: #fca5a5; border: 1px solid rgba(239,68,68,.3); }
+    .alert-success { background: rgba(16,185,129,.15); color: #6ee7b7; border: 1px solid rgba(16,185,129,.3); }
+    .alert-info    { background: rgba(59,130,246,.15); color: #93c5fd; border: 1px solid rgba(59,130,246,.3); }
+
+    /* ── Dashboard layout ── */
+    .dashboard { display: none; flex-direction: column; min-height: 100vh; }
+    .dashboard.active { display: flex; }
+
+    .admin-header {
+      background: var(--gray-800); border-bottom: 1px solid var(--gray-700);
+      padding: 0 24px; height: 60px; display: flex; align-items: center;
+      justify-content: space-between; position: sticky; top: 0; z-index: 100;
+    }
+    .admin-logo { font-size: 1.15rem; font-weight: 900; color: var(--white); }
+    .admin-logo em { color: var(--orange); font-style: normal; }
+    .admin-logo small { font-size: .7rem; font-weight: 400; color: var(--gray-500); margin-left: 8px; }
+
+    .admin-body { display: flex; flex: 1; }
+
+    .admin-sidebar {
+      width: 230px; background: var(--gray-800); border-right: 1px solid var(--gray-700);
+      padding: 20px 0; flex-shrink: 0;
+    }
+    .sidebar-section { font-size: .68rem; font-weight: 700; color: var(--gray-600); text-transform: uppercase; letter-spacing: .08em; padding: 0 20px; margin: 16px 0 6px; }
+    .sidebar-section:first-child { margin-top: 0; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px; padding: 11px 20px;
+      color: var(--gray-400); cursor: pointer; transition: all .2s;
+      font-size: .88rem; border-left: 3px solid transparent; user-select: none;
+    }
+    .nav-item:hover  { background: var(--gray-700); color: var(--white); }
+    .nav-item.active { background: rgba(37,99,235,.12); color: var(--blue-500); border-left-color: var(--blue-500); font-weight: 600; }
+    .nav-item i { width: 16px; text-align: center; font-size: .85rem; }
+
+    .admin-main { flex: 1; padding: 32px; overflow-y: auto; max-width: 900px; }
+
+    /* ── Tabs ── */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .panel-head { margin-bottom: 28px; }
+    .panel-head h2 { font-size: 1.35rem; font-weight: 700; color: var(--white); display: flex; align-items: center; gap: 10px; }
+    .panel-head h2 i { color: var(--orange); font-size: 1.1rem; }
+    .panel-head p { color: var(--gray-400); font-size: .87rem; margin-top: 7px; }
+
+    /* ── Cards ── */
+    .card { background: var(--gray-800); border: 1px solid var(--gray-700); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .card-title { font-size: .95rem; font-weight: 700; color: var(--white); }
+    .card-sub { font-size: .82rem; color: var(--gray-500); margin-top: 2px; }
+
+    /* ── Grid ── */
+    .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+    /* ── Plano card ── */
+    .plano-badge { display: inline-flex; align-items: center; gap: 6px; font-size: .75rem; padding: 3px 10px; border-radius: 20px; font-weight: 600; }
+    .plano-badge.destaque { background: rgba(249,115,22,.2); color: var(--orange); }
+    .plano-badge.normal   { background: var(--gray-700); color: var(--gray-400); }
+    .toggle-destaque { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: .83rem; color: var(--gray-400); }
+    .toggle-destaque input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--orange); }
+
+    /* ── Avisos ── */
+    .aviso-item { background: var(--gray-700); border-radius: 10px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+    .aviso-info { flex: 1; min-width: 0; }
+    .aviso-info strong { display: block; font-size: .9rem; color: var(--white); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .aviso-info span { font-size: .78rem; color: var(--gray-400); }
+    .aviso-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .aviso-badge { font-size: .72rem; padding: 2px 8px; border-radius: 20px; font-weight: 600; white-space: nowrap; }
+    .tipo-instabilidade { background: rgba(245,158,11,.2); color: #fcd34d; }
+    .tipo-manutencao    { background: rgba(59,130,246,.2);  color: #93c5fd; }
+    .tipo-queda         { background: rgba(239,68,68,.2);   color: #fca5a5; }
+    .tipo-normalizado   { background: rgba(16,185,129,.2);  color: #6ee7b7; }
+
+    /* ── Toggle switch ── */
+    .switch { width: 40px; height: 22px; background: var(--gray-600); border-radius: 11px; border: none; cursor: pointer; position: relative; transition: background .2s; flex-shrink: 0; }
+    .switch.on { background: var(--green); }
+    .switch::after { content: ''; position: absolute; width: 16px; height: 16px; background: var(--white); border-radius: 50%; top: 3px; left: 3px; transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+    .switch.on::after { transform: translateX(18px); }
+
+    /* ── Tags ── */
+    .tags-wrap { display: flex; flex-wrap: wrap; gap: 6px; min-height: 36px; margin-bottom: 14px; }
+    .tag { display: inline-flex; align-items: center; gap: 6px; background: rgba(37,99,235,.15); color: var(--blue-500); border: 1px solid rgba(37,99,235,.3); border-radius: 6px; padding: 5px 10px; font-size: .83rem; }
+    .tag .rm { background: none; border: none; color: rgba(59,130,246,.6); cursor: pointer; padding: 0; font-size: .85rem; line-height: 1; }
+    .tag .rm:hover { color: var(--red); }
+
+    .add-row { display: flex; gap: 10px; }
+    .add-row input { flex: 1; background: var(--gray-700); border: 1px solid var(--gray-600); border-radius: 8px; padding: 10px 14px; color: var(--white); font-size: .9rem; outline: none; }
+    .add-row input:focus { border-color: var(--blue-500); }
+
+    /* ── Status toast ── */
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--gray-800); border: 1px solid var(--gray-700); border-radius: 10px; padding: 13px 20px; font-size: .88rem; display: none; align-items: center; gap: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.5); z-index: 999; max-width: 340px; }
+    .toast.show    { display: flex; }
+    .toast.success { border-color: var(--green); color: #6ee7b7; }
+    .toast.error   { border-color: var(--red);   color: #fca5a5; }
+    .toast.info    { border-color: var(--blue-500); color: #93c5fd; }
+
+    hr.divider { border: none; border-top: 1px solid var(--gray-700); margin: 24px 0; }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .admin-sidebar { display: none; }
+      .admin-main { padding: 16px; }
+      .g2, .g3 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════
+     TELA DE LOGIN
+════════════════════════════════════════════════════════ -->
+<div class="login-wrap" id="loginWrap">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="brand">∞ Infinity <em>Web</em></div>
+      <p><i class="fas fa-shield-alt"></i> Painel Administrativo</p>
+    </div>
+
+    <div id="loginAlert" class="alert" style="display:none"></div>
+
+    <form id="loginForm">
+      <div class="form-group">
+        <label><i class="fas fa-lock"></i> Senha de Acesso</label>
+        <input type="password" id="loginPwd" placeholder="••••••••••••" autocomplete="current-password" required autofocus />
+      </div>
+      <button type="submit" class="btn btn-primary btn-full" id="loginBtn">
+        <i class="fas fa-sign-in-alt"></i> Entrar no Painel
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     DASHBOARD
+════════════════════════════════════════════════════════ -->
+<div class="dashboard" id="dashboard">
+
+  <!-- Header -->
+  <header class="admin-header">
+    <div class="admin-logo">∞ Infinity <em>Web</em> <small>Admin</small></div>
+    <div style="display:flex;align-items:center;gap:16px">
+      <span style="font-size:.78rem;color:var(--gray-500)" id="savedAt"></span>
+      <button class="btn btn-outline btn-sm" onclick="logout()">
+        <i class="fas fa-sign-out-alt"></i> Sair
+      </button>
+    </div>
+  </header>
+
+  <div class="admin-body">
+
+    <!-- Sidebar -->
+    <nav class="admin-sidebar">
+      <div class="sidebar-section">Configurações</div>
+      <div class="nav-item active" onclick="goTab('planos',this)">
+        <i class="fas fa-tags"></i> Planos & Preços
+      </div>
+      <div class="nav-item" onclick="goTab('avisos',this)">
+        <i class="fas fa-bell"></i> Avisos de Rede
+      </div>
+      <div class="nav-item" onclick="goTab('contato',this)">
+        <i class="fas fa-phone"></i> Contato & Endereço
+      </div>
+      <div class="nav-item" onclick="goTab('cobertura',this)">
+        <i class="fas fa-map-marker-alt"></i> Área de Cobertura
+      </div>
+    </nav>
+
+    <!-- Main -->
+    <main class="admin-main">
+
+      <!-- ── PLANOS ── -->
+      <div class="tab-panel active" id="tab-planos">
+        <div class="panel-head">
+          <h2><i class="fas fa-tags"></i> Planos & Preços Residenciais</h2>
+          <p>Edite velocidade e preço de cada plano. As mudanças refletem no site e no chat IA após o deploy (~1 min).</p>
+        </div>
+        <div id="planosContainer"></div>
+        <button class="btn btn-success" onclick="save('planos')">
+          <i class="fas fa-cloud-upload-alt"></i> Publicar Alterações
+        </button>
+      </div>
+
+      <!-- ── AVISOS ── -->
+      <div class="tab-panel" id="tab-avisos">
+        <div class="panel-head">
+          <h2><i class="fas fa-bell"></i> Avisos de Rede</h2>
+          <p>Avisos ativos são lidos pela IA e informados automaticamente aos clientes que perguntarem sobre problemas.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><div class="card-title">+ Novo Aviso</div></div>
+          <div class="g2">
+            <div class="form-group">
+              <label>Tipo</label>
+              <select id="nTipo">
+                <option value="instabilidade">⚡ Instabilidade</option>
+                <option value="manutencao">🔧 Manutenção</option>
+                <option value="queda">🔴 Queda Total</option>
+                <option value="normalizado">✅ Normalizado</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Região afetada</label>
+              <select id="nRegiao">
+                <option>Jordanesia</option>
+                <option>Cajamar Centro</option>
+                <option>Região Industrial</option>
+                <option>Polvilho</option>
+                <option>Todas as regiões</option>
+                <option>Outra</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Título do aviso</label>
+            <input type="text" id="nTitulo" placeholder="Ex: Instabilidade intermitente em Jordanesia" />
+          </div>
+          <div class="form-group">
+            <label>Mensagem para os clientes</label>
+            <textarea id="nMsg" placeholder="Descreva o problema e previsão de normalização..."></textarea>
+          </div>
+          <button class="btn btn-primary" onclick="addAviso()">
+            <i class="fas fa-plus-circle"></i> Adicionar Aviso
+          </button>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Avisos Publicados</div>
+              <div class="card-sub">Use o toggle para ativar/desativar sem excluir</div>
+            </div>
+          </div>
+          <div id="avisosLista"><p style="color:var(--gray-500);text-align:center;padding:20px 0">Nenhum aviso cadastrado.</p></div>
+        </div>
+
+        <button class="btn btn-success" onclick="save('avisos')">
+          <i class="fas fa-cloud-upload-alt"></i> Publicar Alterações
+        </button>
+      </div>
+
+      <!-- ── CONTATO ── -->
+      <div class="tab-panel" id="tab-contato">
+        <div class="panel-head">
+          <h2><i class="fas fa-phone"></i> Contato & Endereço</h2>
+          <p>Dados exibidos no site e usados pela IA ao indicar contato ao cliente.</p>
+        </div>
+        <div class="card">
+          <div class="g2">
+            <div class="form-group">
+              <label>WhatsApp (com DDI, sem +)</label>
+              <input type="text" id="cWA" placeholder="5511964012136" />
+            </div>
+            <div class="form-group">
+              <label>WhatsApp (exibição no site)</label>
+              <input type="text" id="cWAd" placeholder="(11) 96401-2136" />
+            </div>
+            <div class="form-group">
+              <label>Telefone fixo</label>
+              <input type="text" id="cTel" placeholder="(11) 99951-7145" />
+            </div>
+            <div class="form-group">
+              <label>E-mail de suporte</label>
+              <input type="email" id="cEmail" placeholder="contato@webinfinity.com.br" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Endereço completo</label>
+            <input type="text" id="cEnd" placeholder="Rua Exemplo, 123, Bairro — Cajamar-SP" />
+          </div>
+        </div>
+        <button class="btn btn-success" onclick="save('contato')">
+          <i class="fas fa-cloud-upload-alt"></i> Publicar Alterações
+        </button>
+      </div>
+
+      <!-- ── COBERTURA ── -->
+      <div class="tab-panel" id="tab-cobertura">
+        <div class="panel-head">
+          <h2><i class="fas fa-map-marker-alt"></i> Área de Cobertura</h2>
+          <p>Regiões onde o sinal está disponível. A IA usa esta lista quando clientes perguntam sobre cobertura.</p>
+        </div>
+        <div class="card">
+          <div class="card-title" style="margin-bottom:14px">Regiões atendidas</div>
+          <div class="tags-wrap" id="regioesWrap"></div>
+          <div class="add-row">
+            <input type="text" id="nRegCob" placeholder="Nome do novo bairro ou região" />
+            <button class="btn btn-primary" onclick="addRegiao()"><i class="fas fa-plus"></i> Adicionar</button>
+          </div>
+        </div>
+        <button class="btn btn-success" onclick="save('cobertura')">
+          <i class="fas fa-cloud-upload-alt"></i> Publicar Alterações
+        </button>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Toast de status -->
+<div class="toast" id="toast"><i class="fas fa-check-circle"></i><span id="toastMsg"></span></div>
+
+<!-- ════════════════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ── Estado global ─────────────────────────────────────── */
+let pwd    = '';
+let config = null;
+let sha    = null;
+
+const API = '/api/admin';
+
+/* ── Autenticação ──────────────────────────────────────── */
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn   = document.getElementById('loginBtn');
+  const alert = document.getElementById('loginAlert');
+  const input = document.getElementById('loginPwd');
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Entrando...';
+  alert.style.display = 'none';
+
+  try {
+    const res  = await fetch(API, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ password: input.value, action: 'read' }),
+    });
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || 'Erro ao autenticar.');
+
+    pwd    = input.value;
+    config = data.config;
+    sha    = data.sha;
+    sessionStorage.setItem('iw_admin_pwd', pwd);
+
+    openDashboard();
+  } catch (err) {
+    alert.className = 'alert alert-error';
+    alert.textContent = '🔐 ' + err.message;
+    alert.style.display = 'block';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar no Painel';
+  }
+});
+
+function logout() {
+  sessionStorage.removeItem('iw_admin_pwd');
+  pwd = ''; config = null; sha = null;
+  document.getElementById('loginWrap').style.display = 'flex';
+  document.getElementById('dashboard').classList.remove('active');
+  document.getElementById('loginPwd').value = '';
+  document.getElementById('loginAlert').style.display = 'none';
+}
+
+/* Auto-login com sessão salva */
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = sessionStorage.getItem('iw_admin_pwd');
+  if (saved) {
+    document.getElementById('loginPwd').value = saved;
+    document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+  }
+});
+
+/* ── Navegação ─────────────────────────────────────────── */
+function goTab(id, el) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  el.classList.add('active');
+}
+
+function openDashboard() {
+  document.getElementById('loginWrap').style.display = 'none';
+  document.getElementById('dashboard').classList.add('active');
+  renderAll();
+}
+
+/* ── Renderização ──────────────────────────────────────── */
+function renderAll() {
+  renderPlanos();
+  renderAvisos();
+  renderContato();
+  renderCobertura();
+}
+
+function renderPlanos() {
+  const box    = document.getElementById('planosContainer');
+  const planos = config?.planos?.residencial || [];
+
+  box.innerHTML = planos.map((p, i) => `
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">${escHtml(p.nome)}</div>
+          <div class="card-sub">${escHtml(p.velocidade)} · R$ ${escHtml(p.preco)}/mês</div>
+        </div>
+        <label class="toggle-destaque">
+          <input type="checkbox" ${p.destaque ? 'checked' : ''} onchange="config.planos.residencial[${i}].destaque=this.checked;renderPlanos()">
+          ${p.destaque ? '<span class="plano-badge destaque">⭐ Destaque</span>' : '<span class="plano-badge normal">Padrão</span>'}
+        </label>
+      </div>
+      <div class="g3">
+        <div class="form-group">
+          <label>Nome do plano</label>
+          <input type="text" value="${escHtml(p.nome)}" oninput="config.planos.residencial[${i}].nome=this.value" />
+        </div>
+        <div class="form-group">
+          <label>Velocidade</label>
+          <input type="text" value="${escHtml(p.velocidade)}" oninput="config.planos.residencial[${i}].velocidade=this.value" placeholder="Ex: 300 Mega" />
+        </div>
+        <div class="form-group">
+          <label>Preço (R$)</label>
+          <input type="text" value="${escHtml(p.preco)}" oninput="config.planos.residencial[${i}].preco=this.value" placeholder="Ex: 99,99" />
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderAvisos() {
+  const box    = document.getElementById('avisosLista');
+  const avisos = config?.avisos || [];
+
+  if (!avisos.length) {
+    box.innerHTML = '<p style="color:var(--gray-500);text-align:center;padding:20px 0">Nenhum aviso cadastrado.</p>';
+    return;
+  }
+
+  const tipoMap = {
+    instabilidade: ['tipo-instabilidade', '⚡ Instabilidade'],
+    manutencao:    ['tipo-manutencao',    '🔧 Manutenção'],
+    queda:         ['tipo-queda',         '🔴 Queda Total'],
+    normalizado:   ['tipo-normalizado',   '✅ Normalizado'],
+  };
+
+  box.innerHTML = avisos.map((a, i) => {
+    const [cls, label] = tipoMap[a.tipo] || ['tipo-instabilidade', a.tipo];
+    return `
+      <div class="aviso-item">
+        <span class="aviso-badge ${cls}">${label}</span>
+        <div class="aviso-info">
+          <strong title="${escHtml(a.titulo)}">${escHtml(a.titulo || a.mensagem)}</strong>
+          <span>${escHtml(a.regiao)} · ${escHtml(a.criado_em || '')}</span>
+        </div>
+        <div class="aviso-actions">
+          <button class="switch ${a.ativo ? 'on' : ''}" onclick="toggleAviso(${i})" title="${a.ativo ? 'Ativo — clique para desativar' : 'Inativo — clique para ativar'}"></button>
+          <button class="btn btn-danger btn-sm" onclick="delAviso(${i})"><i class="fas fa-trash"></i></button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderContato() {
+  const c = config?.contato || {};
+  document.getElementById('cWA').value    = c.whatsapp || '';
+  document.getElementById('cWAd').value   = c.whatsapp_display || '';
+  document.getElementById('cTel').value   = c.telefone || '';
+  document.getElementById('cEmail').value = c.email || '';
+  document.getElementById('cEnd').value   = c.endereco || '';
+}
+
+function renderCobertura() {
+  const regioes = config?.cobertura?.regioes || [];
+  document.getElementById('regioesWrap').innerHTML = regioes.map((r, i) => `
+    <span class="tag">
+      <i class="fas fa-map-marker-alt" style="font-size:.7rem;opacity:.7"></i>
+      ${escHtml(r)}
+      <button class="rm" onclick="delRegiao(${i})" title="Remover">×</button>
+    </span>
+  `).join('');
+}
+
+/* ── Ações — Avisos ────────────────────────────────────── */
+function addAviso() {
+  const tipo    = document.getElementById('nTipo').value;
+  const regiao  = document.getElementById('nRegiao').value;
+  const titulo  = document.getElementById('nTitulo').value.trim();
+  const msg     = document.getElementById('nMsg').value.trim();
+
+  if (!titulo || !msg) { toast('Preencha título e mensagem.', 'error'); return; }
+
+  if (!config.avisos) config.avisos = [];
+  config.avisos.push({
+    id:        'n_' + Date.now(),
+    tipo, regiao, titulo,
+    mensagem:  msg,
+    ativo:     true,
+    criado_em: new Date().toLocaleString('pt-BR'),
+  });
+
+  document.getElementById('nTitulo').value = '';
+  document.getElementById('nMsg').value    = '';
+  renderAvisos();
+  toast('Aviso adicionado. Clique em "Publicar" para salvar.', 'info');
+}
+
+function toggleAviso(i) { config.avisos[i].ativo = !config.avisos[i].ativo; renderAvisos(); }
+function delAviso(i)    { config.avisos.splice(i, 1); renderAvisos(); }
+
+/* ── Ações — Cobertura ─────────────────────────────────── */
+function addRegiao() {
+  const input = document.getElementById('nRegCob');
+  const val   = input.value.trim();
+  if (!val) return;
+  if (!config.cobertura) config.cobertura = { regioes: [] };
+  if (!config.cobertura.regioes.includes(val)) {
+    config.cobertura.regioes.push(val);
+    renderCobertura();
+    toast('Região adicionada. Clique em "Publicar" para salvar.', 'info');
+  }
+  input.value = '';
+}
+
+function delRegiao(i) { config.cobertura.regioes.splice(i, 1); renderCobertura(); }
+
+/* ── Sync campos de contato para o config ──────────────── */
+function syncContato() {
+  config.contato = {
+    whatsapp:         document.getElementById('cWA').value.trim(),
+    whatsapp_display: document.getElementById('cWAd').value.trim(),
+    telefone:         document.getElementById('cTel').value.trim(),
+    email:            document.getElementById('cEmail').value.trim(),
+    endereco:         document.getElementById('cEnd').value.trim(),
+  };
+}
+
+/* ── Salvar via GitHub API ─────────────────────────────── */
+async function save(section) {
+  if (section === 'contato') syncContato();
+
+  toast('Salvando no GitHub...', 'info');
+
+  try {
+    const res  = await fetch(API, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ password: pwd, action: 'save', config, sha }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    if (data.sha) sha = data.sha;
+
+    const now = new Date().toLocaleTimeString('pt-BR');
+    document.getElementById('savedAt').textContent = 'Publicado às ' + now;
+    toast('✅ Publicado! Deploy em andamento (~1 min)...', 'success');
+  } catch (err) {
+    toast('Erro: ' + err.message, 'error');
+  }
+}
+
+/* ── Utilitários ───────────────────────────────────────── */
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function toast(msg, type) {
+  const el = document.getElementById('toast');
+  el.className = 'toast show ' + (type || '');
+  document.getElementById('toastMsg').textContent = msg;
+  if (type !== 'info') setTimeout(() => el.classList.remove('show'), 4000);
+}
+</script>
+</body>
+</html>
