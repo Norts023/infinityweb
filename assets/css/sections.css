@@ -1,0 +1,845 @@
+/**
+ * @file sections.css
+ * @description Estilos específicos de cada seção da landing page.
+ *
+ * Depende de:  variables.css, components.css
+ *
+ * Ordem das seções (reflete a estrutura do HTML):
+ *  1.  Hero             — seção principal com título e card de velocidade
+ *  2.  Quick Access     — 4 atalhos rápidos logo abaixo do hero
+ *  3.  Plans            — cards de planos com tabs (Residencial/Cond./Empresarial)
+ *  4.  Features         — diferenciais da empresa + cards de estatísticas
+ *  5.  Coverage         — mapa de cobertura e dados de endereço
+ *  6.  Testimonials     — depoimentos de clientes
+ *  7.  CTA Banner       — faixa de conversão central
+ *  8.  Contact          — informações de contato + formulário
+ *  9.  Floating UI      — WhatsApp flutuante e botão "voltar ao topo"
+ *
+ * @project  Infinity Web — Site institucional
+ * @version  2.0.0
+ */
+
+/* =============================================================
+   1. HERO
+   Seção de abertura com gradiente, grid animado, orbs e
+   card de velocidade à direita.
+============================================================= */
+.hero {
+  position: relative;
+  min-height: 90vh;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--blue-900) 0%, var(--blue-700) 60%, var(--blue-600) 100%);
+}
+
+/**
+ * Pseudo-elemento de gradiente radial — cria os reflexos de luz
+ * azul (lado direito) e laranja (lado inferior esquerdo).
+ */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 600px 500px at 80% 40%, rgba(37,99,196,.3) 0%, transparent 70%),
+    radial-gradient(ellipse 400px 300px at 20% 70%, rgba(249,115,22,.15) 0%, transparent 60%);
+}
+
+/** Grade de linhas decorativas ao fundo */
+.hero-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+/* ── Orbs flutuantes animados ── */
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  animation: float 8s ease-in-out infinite;
+}
+.orb-1 { width: 300px; height: 300px; background: rgba(37,99,196,.25);  top: 10%;    right: 15%;  animation-delay: 0s; }
+.orb-2 { width: 200px; height: 200px; background: rgba(249,115,22,.2);  bottom: 20%; right: 30%;  animation-delay: 3s; }
+.orb-3 { width: 150px; height: 150px; background: rgba(74,144,226,.2);  top: 50%;    left: 10%;   animation-delay: 6s; }
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%       { transform: translateY(-30px) scale(1.05); }
+}
+
+/** Layout interno: 2 colunas (conteúdo | visual) */
+.hero .container {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  align-items: center;
+  padding: 80px 24px;
+}
+
+/* ── Badge "Fibra Óptica 100% Dedicada" ── */
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(249,115,22,.15);
+  border: 1px solid rgba(249,115,22,.3);
+  color: var(--orange);
+  padding: 8px 16px;
+  border-radius: 99px;
+  font-size: .82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: 24px;
+}
+.hero-badge i { font-size: .75rem; animation: pulse-dot 2s infinite; }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .4; }
+}
+
+/* ── Título principal do hero ── */
+.hero h1 {
+  font-size: clamp(2.2rem, 5vw, 3.8rem);
+  font-weight: 900;
+  color: var(--white);
+  line-height: 1.1;
+  margin-bottom: 20px;
+}
+.hero h1 span { color: var(--orange); }
+
+.hero p {
+  font-size: 1.1rem;
+  color: rgba(255,255,255,.75);
+  line-height: 1.7;
+  margin-bottom: 36px;
+  max-width: 480px;
+}
+
+.hero-buttons {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 48px;
+}
+
+/* ── Estatísticas rápidas (650+ Mega, 99% uptime, 24h suporte) ── */
+.hero-stats {
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+
+.stat { display: flex; flex-direction: column; }
+
+.stat-value {
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: var(--white);
+  line-height: 1;
+}
+.stat-value span { color: var(--orange); }
+
+.stat-label {
+  font-size: .78rem;
+  color: rgba(255,255,255,.55);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-top: 4px;
+}
+
+/* ── Card de velocidade (lado direito do hero) ── */
+.hero-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.speed-card {
+  background: rgba(255,255,255,.05);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: var(--radius-xl);
+  padding: 40px;
+  text-align: center;
+  color: var(--white);
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  max-width: 360px;
+}
+
+/** Efeito de luz giratória no fundo do card */
+.speed-card::before {
+  content: '';
+  position: absolute;
+  top: -50%; left: -50%;
+  width: 200%; height: 200%;
+  background: conic-gradient(from 0deg, transparent, rgba(37,99,196,.15), transparent 60%);
+  animation: spin 8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/** Anel circular colorido com o número de velocidade */
+.speed-ring {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: conic-gradient(var(--orange) 0deg, var(--yellow) 120deg, var(--blue-400) 240deg, rgba(255,255,255,.1) 360deg);
+  display: grid;
+  place-items: center;
+  margin: 0 auto 24px;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 0 40px rgba(249,115,22,.3);
+  animation: ring-pulse 3s ease-in-out infinite;
+}
+
+@keyframes ring-pulse {
+  0%, 100% { box-shadow: 0 0 40px rgba(249,115,22,.3); }
+  50%       { box-shadow: 0 0 60px rgba(249,115,22,.5); }
+}
+
+.speed-inner {
+  width: 140px;
+  height: 140px;
+  background: var(--blue-900);
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/** O número é animado via JavaScript (animations.js — animateCounter) */
+.speed-inner .speed-num  { font-size: 2.8rem; font-weight: 900; color: var(--white); line-height: 1; }
+.speed-inner .speed-unit { font-size: .85rem;  color: var(--orange); font-weight: 700; }
+
+.speed-card h3 { font-size: 1.3rem; font-weight: 700; margin-bottom: 8px; position: relative; z-index: 1; }
+.speed-card p  { font-size: .9rem; color: rgba(255,255,255,.6); position: relative; z-index: 1; }
+
+/** Badges flutuantes ao redor do card de velocidade */
+.floating-badge {
+  position: absolute;
+  background: var(--orange);
+  color: var(--white);
+  font-size: .78rem;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(249,115,22,.4);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  animation: bob 4s ease-in-out infinite;
+}
+
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-8px); }
+}
+
+.floating-badge.b1 { top: 10%; left: -10%; animation-delay: 0s; }
+.floating-badge.b2 { bottom: 15%; right: -5%; animation-delay: 2s; background: var(--blue-500); }
+
+/* =============================================================
+   2. QUICK ACCESS — Atalhos rápidos
+   Sobrepõe levemente o hero com margin-top negativo.
+============================================================= */
+.quick-access {
+  background: var(--white);
+  padding: 0;
+  position: relative;
+  z-index: 2;
+  margin-top: -40px;
+}
+
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  background: var(--white);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  box-shadow: var(--shadow-lg);
+}
+
+.quick-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 16px;
+  border-radius: var(--radius-md);
+  text-align: center;
+  transition: var(--transition);
+  cursor: pointer;
+  border: 2px solid transparent;
+  text-decoration: none;
+  color: inherit;
+}
+.quick-item:hover {
+  background: var(--gray-50);
+  border-color: var(--blue-100);
+  transform: translateY(-4px);
+}
+
+.quick-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-md);
+  display: grid;
+  place-items: center;
+  font-size: 1.4rem;
+}
+
+/* Cores temáticas dos ícones de atalho */
+.qi-1 .quick-icon { background: rgba(249,115,22,.1); color: var(--orange); }
+.qi-2 .quick-icon { background: rgba(37,99,196,.1);  color: var(--blue-400); }
+.qi-3 .quick-icon { background: rgba(34,197,94,.1);  color: #16a34a; }
+.qi-4 .quick-icon { background: rgba(139,92,246,.1); color: #7c3aed; }
+
+.quick-item strong { font-size: .9rem; font-weight: 700; color: var(--gray-800); }
+.quick-item span   { font-size: .78rem; color: var(--gray-400); }
+
+/* =============================================================
+   3. PLANS — Seção de planos com tabs
+============================================================= */
+.plans {
+  padding: 96px 0;
+  background: var(--gray-50);
+}
+
+.plans-header { text-align: center; margin-bottom: 56px; }
+.plans-header .section-subtitle { margin: 12px auto 0; }
+
+/** Tabs de categoria de plano */
+.plans-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 48px;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  padding: 10px 24px;
+  border-radius: 99px;
+  border: 2px solid var(--gray-200);
+  background: var(--white);
+  font-weight: 600;
+  font-size: .88rem;
+  cursor: pointer;
+  transition: var(--transition);
+  color: var(--gray-600);
+}
+.tab-btn.active,
+.tab-btn:hover {
+  background: var(--blue-500);
+  border-color: var(--blue-500);
+  color: var(--white);
+}
+
+/** Grid de 3 cards por linha */
+.plans-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+/* ── Card de plano individual ── */
+.plan-card {
+  background: var(--white);
+  border-radius: var(--radius-xl);
+  padding: 36px 28px;
+  border: 2px solid var(--gray-200);
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+.plan-card:hover {
+  transform: translateY(-8px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--blue-300);
+}
+
+/**
+ * Card em destaque — fundo escuro, escala ligeiramente maior.
+ * Representa o plano recomendado/mais popular.
+ */
+.plan-card.featured {
+  border-color: var(--blue-500);
+  background: linear-gradient(160deg, var(--blue-800) 0%, var(--blue-900) 100%);
+  color: var(--white);
+  transform: scale(1.04);
+  box-shadow: var(--shadow-glow);
+}
+.plan-card.featured:hover { transform: scale(1.04) translateY(-8px); }
+
+/** Etiqueta "Mais Popular" no canto superior direito */
+.plan-popular {
+  position: absolute;
+  top: 16px; right: 16px;
+  background: var(--orange);
+  color: var(--white);
+  font-size: .72rem;
+  font-weight: 800;
+  padding: 5px 12px;
+  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+/* Tipografia do card de plano */
+.plan-speed      { font-size: 3.5rem; font-weight: 900; line-height: 1; color: var(--blue-500); margin-bottom: 4px; }
+.plan-speed-unit { font-size: 1.2rem; font-weight: 700; color: var(--gray-400); margin-bottom: 20px; }
+
+.plan-card.featured .plan-speed      { color: var(--orange); }
+.plan-card.featured .plan-speed-unit { color: rgba(255,255,255,.6); }
+
+.plan-price-wrapper { margin-bottom: 28px; }
+.plan-price-label   { font-size: .8rem; color: var(--gray-400); font-weight: 600; text-transform: uppercase; }
+.plan-card.featured .plan-price-label { color: rgba(255,255,255,.5); }
+
+.plan-price    { display: flex; align-items: flex-start; gap: 4px; margin-top: 4px; }
+.plan-currency { font-size: 1.1rem; font-weight: 700; color: var(--gray-600); margin-top: 8px; }
+.plan-amount   { font-size: 3rem;   font-weight: 900; color: var(--blue-900); line-height: 1; }
+.plan-cents    { font-size: 1.1rem; font-weight: 700; color: var(--gray-600); margin-top: 8px; }
+
+.plan-card.featured .plan-currency { color: rgba(255,255,255,.8); }
+.plan-card.featured .plan-amount   { color: var(--white); }
+.plan-card.featured .plan-cents    { color: rgba(255,255,255,.8); }
+
+/* Lista de features do plano */
+.plan-features {
+  list-style: none;
+  margin-bottom: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.plan-features li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: .9rem;
+  color: var(--gray-600);
+}
+.plan-card.featured .plan-features li { color: rgba(255,255,255,.8); }
+.plan-features li i               { color: #16a34a; font-size: .8rem; flex-shrink: 0; }
+.plan-card.featured .plan-features li i { color: var(--orange); }
+
+.plan-card .btn          { width: 100%; justify-content: center; }
+.plan-card.featured .btn { background: var(--orange); }
+.plan-card.featured .btn:hover { background: var(--orange-h); }
+
+/* =============================================================
+   4. FEATURES — Diferenciais da empresa
+============================================================= */
+.features {
+  padding: 96px 0;
+  background: var(--white);
+}
+
+/** Grid lateral: texto à esquerda, estatísticas à direita */
+.features-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  align-items: center;
+}
+.features-left .section-subtitle { margin: 12px 0 40px; }
+
+.feature-list { display: flex; flex-direction: column; gap: 20px; }
+
+.feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--gray-200);
+  transition: var(--transition);
+}
+.feature-item:hover {
+  border-color: var(--blue-300);
+  background: var(--gray-50);
+  transform: translateX(6px);
+}
+
+.feature-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+/* Cores dos ícones de feature */
+.fi-1 { background: rgba(37,99,196,.1);  color: var(--blue-400); }
+.fi-2 { background: rgba(249,115,22,.1); color: var(--orange); }
+.fi-3 { background: rgba(34,197,94,.1);  color: #16a34a; }
+.fi-4 { background: rgba(139,92,246,.1); color: #7c3aed; }
+
+.feature-text h4 { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+.feature-text p  { font-size: .88rem; color: var(--gray-600); }
+
+/** Grid de cards de estatísticas (lado direito) */
+.features-right {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.stat-card {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  padding: 28px 24px;
+  transition: var(--transition);
+}
+.stat-card:hover {
+  border-color: var(--blue-300);
+  background: var(--white);
+  box-shadow: var(--shadow-md);
+}
+
+/** Card de estatística em destaque — ocupa as 2 colunas */
+.stat-card.featured-stat {
+  background: linear-gradient(135deg, var(--blue-800), var(--blue-900));
+  border-color: transparent;
+  grid-column: span 2;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  color: var(--white);
+}
+
+.stat-card .stat-icon                  { font-size: 1.8rem; margin-bottom: 12px; }
+.stat-card.featured-stat .stat-icon    { font-size: 2.5rem; color: var(--orange); }
+.stat-card .stat-num                   { font-size: 2.2rem; font-weight: 900; color: var(--blue-500); line-height: 1; }
+.stat-card.featured-stat .stat-num     { color: var(--white); font-size: 2.8rem; }
+.stat-card .stat-desc                  { font-size: .85rem; color: var(--gray-600); margin-top: 4px; }
+.stat-card.featured-stat .stat-desc    { color: rgba(255,255,255,.7); }
+
+/* =============================================================
+   5. COVERAGE — Cobertura de rede
+============================================================= */
+.coverage {
+  padding: 96px 0;
+  background: var(--gray-50);
+}
+
+.coverage-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  align-items: center;
+}
+.coverage-right .section-subtitle { margin: 12px 0 32px; }
+
+/** Card de endereço / contato */
+.coverage-address {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  background: var(--white);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--gray-200);
+  margin-bottom: 24px;
+}
+.coverage-address i      { color: var(--orange); font-size: 1.2rem; margin-top: 2px; }
+.coverage-address strong { display: block; font-weight: 700; margin-bottom: 4px; }
+.coverage-address span   { font-size: .88rem; color: var(--gray-600); }
+
+.coverage-check-btn { width: 100%; justify-content: center; padding: 16px; font-size: 1rem; }
+
+/** Placeholder estilizado do mapa */
+.map-placeholder {
+  background: linear-gradient(135deg, var(--blue-800), var(--blue-900));
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  aspect-ratio: 4/3;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.map-placeholder::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 60% 40%, rgba(249,115,22,.2), transparent 50%),
+    radial-gradient(circle at 20% 70%, rgba(37,99,196,.3), transparent 50%);
+}
+
+.map-content { position: relative; z-index: 1; text-align: center; color: var(--white); padding: 32px; }
+.map-content i    { font-size: 4rem; color: var(--orange); margin-bottom: 16px; }
+.map-content h3   { font-size: 1.3rem; font-weight: 700; margin-bottom: 8px; }
+.map-content p    { font-size: .9rem; color: rgba(255,255,255,.6); margin-bottom: 20px; }
+
+/** Ponto animado de localização no mapa */
+.map-dot {
+  width: 14px;
+  height: 14px;
+  background: var(--orange);
+  border-radius: 50%;
+  margin: 0 auto;
+  box-shadow: 0 0 0 6px rgba(249,115,22,.3);
+  animation: ping 2s cubic-bezier(0, 0, .2, 1) infinite;
+}
+@keyframes ping {
+  0%   { box-shadow: 0 0 0 0 rgba(249,115,22,.7); }
+  100% { box-shadow: 0 0 0 20px transparent; }
+}
+
+/* =============================================================
+   6. TESTIMONIALS — Depoimentos de clientes
+============================================================= */
+.testimonials {
+  padding: 96px 0;
+  background: var(--white);
+}
+
+.testimonials-header { text-align: center; margin-bottom: 56px; }
+.testimonials-header .section-subtitle { margin: 12px auto 0; }
+
+.testimonials-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.testimonial-card {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  transition: var(--transition);
+}
+.testimonial-card:hover {
+  border-color: var(--blue-300);
+  box-shadow: var(--shadow-md);
+}
+
+.stars           { color: var(--yellow); font-size: .9rem; margin-bottom: 16px; letter-spacing: 2px; }
+.testimonial-text { font-size: .92rem; color: var(--gray-600); line-height: 1.7; margin-bottom: 20px; font-style: italic; }
+.testimonial-author { display: flex; align-items: center; gap: 12px; }
+
+/** Avatar com inicial do nome */
+.author-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--blue-400), var(--orange));
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+  color: var(--white);
+  font-weight: 700;
+}
+
+.author-name { font-weight: 700; font-size: .9rem; }
+.author-plan { font-size: .78rem; color: var(--gray-400); }
+
+/* =============================================================
+   7. CTA BANNER — Faixa de chamada para ação
+============================================================= */
+.cta-banner {
+  padding: 80px 0;
+  background: linear-gradient(135deg, var(--blue-900) 0%, var(--blue-700) 50%, #1a2e5e 100%);
+  position: relative;
+  overflow: hidden;
+}
+.cta-banner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 800px 400px at 50% 50%, rgba(249,115,22,.1), transparent);
+}
+
+.cta-inner { position: relative; text-align: center; color: var(--white); }
+.cta-inner h2 { font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 900; margin-bottom: 16px; }
+.cta-inner h2 span { color: var(--orange); }
+.cta-inner p  { font-size: 1.05rem; color: rgba(255,255,255,.7); margin-bottom: 40px; max-width: 540px; margin-left: auto; margin-right: auto; }
+.cta-buttons  { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; }
+
+/* =============================================================
+   8. CONTACT — Seção de contato
+============================================================= */
+.contact {
+  padding: 96px 0;
+  background: var(--gray-50);
+}
+
+.contact-header { text-align: center; margin-bottom: 56px; }
+.contact-header .section-subtitle { margin: 12px auto 0; }
+
+/** Grid: 1 coluna de info + 1.5 coluna de formulário */
+.contact-layout {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 48px;
+}
+
+.contact-info { display: flex; flex-direction: column; gap: 20px; }
+
+/** Card individual de canal de contato */
+.contact-card {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  transition: var(--transition);
+}
+.contact-card:hover {
+  border-color: var(--blue-300);
+  box-shadow: var(--shadow-sm);
+}
+
+.cc-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+/* Cores dos ícones de canal de contato */
+.cci-1 { background: rgba(249,115,22,.1); color: var(--orange); }
+.cci-2 { background: rgba(37,99,196,.1);  color: var(--blue-400); }
+.cci-3 { background: rgba(34,197,94,.1);  color: #16a34a; }
+.cci-4 { background: rgba(139,92,246,.1); color: #7c3aed; }
+
+.cc-text strong { display: block; font-weight: 700; font-size: .9rem; margin-bottom: 2px; }
+.cc-text span   { font-size: .85rem; color: var(--gray-600); }
+.cc-text a      { color: var(--blue-400); font-size: .85rem; }
+
+/** Wrapper do formulário de contato */
+.contact-form-wrap {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-xl);
+  padding: 40px;
+}
+
+.form-title { font-size: 1.3rem; font-weight: 800; margin-bottom: 24px; color: var(--blue-900); }
+.form-group { margin-bottom: 18px; }
+.form-row   { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+.form-group label {
+  display: block;
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--gray-600);
+  margin-bottom: 6px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: .92rem;
+  color: var(--gray-800);
+  background: var(--white);
+  transition: var(--transition);
+  outline: none;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: var(--blue-400);
+  box-shadow: 0 0 0 3px rgba(37, 99, 196, .1);
+}
+
+.form-group textarea { resize: vertical; min-height: 100px; }
+.form-submit { width: 100%; justify-content: center; padding: 16px; font-size: 1rem; }
+
+/* =============================================================
+   9. FLOATING UI — Elementos flutuantes
+   WhatsApp, botão de scroll-to-top.
+   O chat widget está em chat.css.
+============================================================= */
+
+/** Botão flutuante do WhatsApp */
+.whatsapp-float {
+  position: fixed;
+  bottom: 100px;
+  right: 24px;
+  z-index: 888;
+  width: 56px;
+  height: 56px;
+  background: #25D366;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--white);
+  font-size: 1.5rem;
+  box-shadow: 0 4px 20px rgba(37, 211, 102, .5);
+  transition: var(--transition);
+  text-decoration: none;
+}
+.whatsapp-float:hover { transform: scale(1.12); }
+
+/** Anel de pulso animado ao redor do ícone WhatsApp */
+.whatsapp-pulse {
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 3px solid rgba(37, 211, 102, .5);
+  animation: whatsapp-ping 2s cubic-bezier(0, 0, .2, 1) infinite;
+}
+@keyframes whatsapp-ping {
+  0%   { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+/** Botão de voltar ao topo — visível após 400px de scroll */
+.scroll-top {
+  position: fixed;
+  bottom: 170px;
+  right: 24px;
+  z-index: 888;
+  width: 44px;
+  height: 44px;
+  background: var(--blue-800);
+  border: none;
+  border-radius: 50%;
+  color: var(--white);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+  opacity: 0;
+  transition: var(--transition);
+  pointer-events: none;
+  box-shadow: var(--shadow-md);
+}
+
+/** A classe .visible é adicionada via JavaScript (navigation.js) */
+.scroll-top.visible { opacity: 1; pointer-events: all; }
+.scroll-top:hover   { background: var(--blue-500); transform: translateY(-3px); }

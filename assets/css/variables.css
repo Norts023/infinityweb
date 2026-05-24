@@ -1,0 +1,115 @@
+/**
+ * @file variables.css
+ * @description Variáveis globais CSS (design tokens) e reset base do projeto.
+ *
+ * Organização:
+ *  1. CSS Reset universal
+ *  2. Variáveis de cor (paleta azul, laranja, cinza)
+ *  3. Variáveis de espaçamento e forma (border-radius)
+ *  4. Variáveis de sombra
+ *  5. Variáveis de transição/animação
+ *  6. Estilos de base (html, body, a, img)
+ *
+ * Como usar:
+ *  Importe este arquivo PRIMEIRO em qualquer página antes dos demais .css.
+ *  Todas as outras folhas de estilo dependem das custom properties definidas aqui.
+ *
+ * @project  Infinity Web — Site institucional
+ * @version  2.0.0
+ */
+
+/* =============================================================
+   1. CSS RESET UNIVERSAL
+   Zera margens, paddings e garante box-sizing consistente.
+============================================================= */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* =============================================================
+   2. PALETA DE CORES
+   Uso: var(--blue-900) para fundo escuro, var(--orange) para CTAs, etc.
+============================================================= */
+:root {
+  /* Escala de azuis (cor primária da marca) */
+  --blue-900: #0a1628;  /* Fundo mais escuro — header, footer */
+  --blue-800: #0d1f3c;  /* Fundo secundário — nav, sidebar */
+  --blue-700: #102a52;  /* Gradientes */
+  --blue-600: #1a3a6e;  /* Gradientes intermediários */
+  --blue-500: #1e4d9b;  /* Azul principal — botões, destaques */
+  --blue-400: #2563c4;  /* Azul claro — links, ícones */
+  --blue-300: #4a90e2;  /* Azul suave — bordas de foco */
+  --blue-100: #c8dcf8;  /* Azul muito claro — texto em fundo escuro */
+
+  /* Cores de destaque (CTA e alertas) */
+  --orange:   #f97316;  /* Laranja principal — botões primários */
+  --orange-h: #ea6a0a;  /* Laranja hover */
+  --yellow:   #fbbf24;  /* Amarelo — estrelas, avisos */
+
+  /* Neutros */
+  --white:    #ffffff;
+  --gray-50:  #f8fafc;  /* Fundo de seções alternadas */
+  --gray-100: #f1f5f9;  /* Fundo de inputs e cards */
+  --gray-200: #e2e8f0;  /* Bordas */
+  --gray-400: #94a3b8;  /* Textos secundários */
+  --gray-600: #475569;  /* Textos de suporte */
+  --gray-800: #1e293b;  /* Texto principal */
+}
+
+/* =============================================================
+   3. BORDER-RADIUS (arredondamento padrão)
+   Nomenclatura progressiva: sm → md → lg → xl
+============================================================= */
+:root {
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+}
+
+/* =============================================================
+   4. SOMBRAS
+   Gradação de intensidade: sm (sutil) → glow (efeito neon azul)
+============================================================= */
+:root {
+  --shadow-sm:   0 1px 3px rgba(0, 0, 0, .12);
+  --shadow-md:   0 4px 20px rgba(0, 0, 0, .15);
+  --shadow-lg:   0 8px 40px rgba(0, 0, 0, .2);
+  --shadow-glow: 0 0 30px rgba(37, 99, 196, .35);  /* Brilho azul do brand */
+}
+
+/* =============================================================
+   5. TRANSIÇÃO PADRÃO
+   Reutilize em qualquer propriedade animável: transition: var(--transition)
+============================================================= */
+:root {
+  --transition: .25s cubic-bezier(.4, 0, .2, 1);
+}
+
+/* =============================================================
+   6. ESTILOS DE BASE
+   Aplicados globalmente ao documento.
+============================================================= */
+html {
+  scroll-behavior: smooth;  /* Scroll suave para âncoras */
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--white);
+  color: var(--gray-800);
+  overflow-x: hidden;       /* Evita scroll horizontal acidental */
+  line-height: 1.6;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}

@@ -1,0 +1,367 @@
+/**
+ * @file layout.css
+ * @description Estilos de estrutura global da página:
+ *              barra superior (topbar), navegação/header e rodapé (footer).
+ *
+ * Depende de:  variables.css, components.css
+ *
+ * Seções:
+ *  1. Topbar — faixa de contato no topo
+ *  2. Header / Nav — barra de navegação sticky
+ *     2a. Logo
+ *     2b. Links de navegação e dropdown
+ *     2c. Botões de CTA na nav
+ *     2d. Hamburger (ícone mobile)
+ *     2e. Menu mobile
+ *  3. Footer — rodapé completo com grid de colunas
+ *
+ * @project  Infinity Web — Site institucional
+ * @version  2.0.0
+ */
+
+/* =============================================================
+   1. TOPBAR
+   Faixa fina no topo com dados de contato (telefone, e-mail)
+   e ícones de redes sociais.
+============================================================= */
+.topbar {
+  background: var(--blue-900);
+  padding: 8px 0;
+  font-size: .82rem;
+  color: var(--blue-100);
+}
+
+.topbar .container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/** Lado esquerdo: links de contato (tel, e-mail) */
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.topbar-left a {
+  color: var(--blue-100);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: color var(--transition);
+}
+.topbar-left a:hover { color: var(--orange); }
+
+/** Lado direito: ícones de redes sociais */
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.topbar-right a {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, .08);
+  border-radius: 50%;
+  color: var(--blue-100);
+  font-size: .85rem;
+  transition: var(--transition);
+}
+.topbar-right a:hover {
+  background: var(--orange);
+  color: var(--white);
+}
+
+/* =============================================================
+   2. HEADER / NAV
+   Barra de navegação sticky — permanece fixada no topo durante o scroll.
+============================================================= */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 900;
+  background: var(--blue-800);
+  box-shadow: 0 2px 20px rgba(0, 0, 0, .3);
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  gap: 16px;
+}
+
+/* ── 2a. Logo ── */
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--white);
+  letter-spacing: -.02em;
+}
+
+.logo-icon {
+  width: 42px;
+  height: 42px;
+  background: linear-gradient(135deg, var(--blue-400), var(--orange));
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 1.2rem;
+}
+
+.logo span { color: var(--orange); }
+
+/* ── 2b. Links de Navegação e Dropdown ── */
+.nav-links {
+  display: flex;
+  align-items: center;
+  list-style: none;
+  gap: 4px;
+}
+
+.nav-links > li { position: relative; }
+
+.nav-links > li > a {
+  color: rgba(255, 255, 255, .8);
+  font-size: .9rem;
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.nav-links > li > a:hover,
+.nav-links > li > a.active {
+  color: var(--white);
+  background: rgba(255, 255, 255, .1);
+}
+
+/**
+ * Dropdown — exibido ao fazer hover no item pai.
+ * Usa opacity + visibility para que a transição CSS funcione corretamente
+ * (display: none bloqueia animações).
+ */
+.dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  background: var(--blue-800);
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: var(--radius-md);
+  min-width: 220px;
+  padding: 8px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  transition: var(--transition);
+  box-shadow: var(--shadow-lg);
+  z-index: 999;
+}
+
+.nav-links > li:hover .dropdown {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.dropdown a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: rgba(255, 255, 255, .8);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: .88rem;
+  font-weight: 500;
+  transition: var(--transition);
+}
+.dropdown a:hover {
+  background: rgba(255, 255, 255, .1);
+  color: var(--white);
+}
+.dropdown a i {
+  color: var(--orange);
+  width: 16px;
+}
+
+/* ── 2c. Botões de CTA na nav ── */
+.nav-cta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.nav-cta .btn {
+  padding: 10px 20px;
+  font-size: .85rem;
+}
+
+/* ── 2d. Hamburger (ícone de menu mobile) ── */
+/**
+ * O botão usa 3 spans que se animam para formar um "X" quando aberto.
+ * A classe .open é adicionada via JavaScript (navigation.js).
+ */
+.hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  cursor: pointer;
+  padding: 4px;
+  background: none;
+  border: none;
+}
+
+.hamburger span {
+  width: 24px;
+  height: 2px;
+  background: var(--white);
+  border-radius: 2px;
+  transition: var(--transition);
+}
+
+/* Estado aberto — transforma as barras em "X" */
+.hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.hamburger.open span:nth-child(2) { opacity: 0; }
+.hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* ── 2e. Menu Mobile ── */
+.mobile-menu {
+  display: none;
+  flex-direction: column;
+  background: var(--blue-900);
+  border-top: 1px solid rgba(255, 255, 255, .1);
+  padding: 16px 24px;
+  gap: 4px;
+}
+
+/* A classe .open é adicionada via JavaScript */
+.mobile-menu.open { display: flex; }
+
+.mobile-menu a {
+  color: rgba(255, 255, 255, .8);
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, .06);
+  font-weight: 500;
+  font-size: .95rem;
+  transition: color var(--transition);
+}
+.mobile-menu a:hover { color: var(--orange); }
+.mobile-menu .btn {
+  margin-top: 12px;
+  justify-content: center;
+  width: 100%;
+}
+
+/* =============================================================
+   3. FOOTER
+   Rodapé em grid de 4 colunas (marca + 3 colunas de links).
+============================================================= */
+footer {
+  background: var(--blue-900);
+  color: rgba(255, 255, 255, .7);
+  padding: 64px 0 0;
+}
+
+/** Grid principal do rodapé: coluna da marca (2fr) + 3 colunas de links */
+.footer-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 48px;
+  padding-bottom: 48px;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+}
+
+.footer-brand .logo {
+  margin-bottom: 16px;
+  font-size: 1.3rem;
+}
+
+.footer-brand p {
+  font-size: .88rem;
+  line-height: 1.7;
+  max-width: 260px;
+}
+
+/** Ícones de redes sociais no rodapé */
+.footer-social {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.footer-social a {
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, .08);
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, .7);
+  font-size: .9rem;
+  transition: var(--transition);
+}
+.footer-social a:hover {
+  background: var(--orange);
+  color: var(--white);
+}
+
+/** Cabeçalhos das colunas de links */
+.footer-col h4 {
+  color: var(--white);
+  font-size: .9rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.footer-col ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.footer-col ul li a {
+  color: rgba(255, 255, 255, .6);
+  font-size: .88rem;
+  transition: color var(--transition);
+}
+.footer-col ul li a:hover { color: var(--orange); }
+
+/** Barra inferior com copyright e badge ANATEL */
+.footer-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 0;
+  font-size: .82rem;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.footer-bottom span { color: rgba(255, 255, 255, .4); }
+
+/** Badge de regulamentação ANATEL */
+.anatel-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, .06);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: .78rem;
+  color: rgba(255, 255, 255, .5);
+}
+.anatel-badge i { color: var(--orange); }

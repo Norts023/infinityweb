@@ -1,0 +1,104 @@
+/**
+ * @file responsive.css
+ * @description Media queries de responsividade — adapta o layout para
+ *              tablets e dispositivos móveis.
+ *
+ * Depende de:  variables.css, layout.css, sections.css, chat.css
+ * Estratégia:  Desktop-first (max-width). Importar SEMPRE por último.
+ *
+ * Breakpoints:
+ *  ≤ 1024px — Tablet landscape / desktop pequeno
+ *  ≤  768px — Tablet portrait / mobile grande
+ *  ≤  480px — Mobile pequeno
+ *
+ * @project  Infinity Web — Site institucional
+ * @version  2.0.0
+ */
+
+/* =============================================================
+   BREAKPOINT: ≤ 1024px
+   Tablet landscape — colapsa grids de 2 colunas em 1 coluna.
+============================================================= */
+@media (max-width: 1024px) {
+  /* Hero: empilha conteúdo + oculta visual do card de velocidade */
+  .hero .container { grid-template-columns: 1fr; gap: 48px; }
+  .hero-visual { display: none; }
+
+  /* Features: empilha texto e stats */
+  .features-layout { grid-template-columns: 1fr; gap: 48px; }
+
+  /* Coverage: empilha mapa e texto */
+  .coverage-layout { grid-template-columns: 1fr; }
+  .map-placeholder { display: none; }
+
+  /* Footer: reduz para 2 colunas */
+  .footer-grid { grid-template-columns: 1fr 1fr; }
+
+  /* Plans: exibe um card por linha */
+  .plans-grid {
+    grid-template-columns: 1fr;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  /* Remove a escala do card em destaque (evita overflow) */
+  .plan-card.featured { transform: scale(1); }
+}
+
+/* =============================================================
+   BREAKPOINT: ≤ 768px
+   Tablet portrait / mobile grande — activa menu hamburger.
+============================================================= */
+@media (max-width: 768px) {
+  /* Topbar: oculta redes sociais para ganhar espaço */
+  .topbar-right { display: none; }
+
+  /* Nav: oculta links e CTAs, exibe hamburger */
+  .nav-links { display: none; }
+  .nav-cta   { display: none; }
+  .hamburger { display: flex; }
+
+  /* Quick Access: 2 colunas */
+  .quick-grid { grid-template-columns: repeat(2, 1fr); }
+
+  /* Testimonials: 1 coluna */
+  .testimonials-grid { grid-template-columns: 1fr; }
+
+  /* Contact: empilha info + formulário */
+  .contact-layout { grid-template-columns: 1fr; }
+
+  /* Footer: 1 coluna */
+  .footer-grid { grid-template-columns: 1fr; gap: 32px; }
+
+  /* Formulário de contato: 1 coluna */
+  .form-row { grid-template-columns: 1fr; }
+
+  /* Hero: menos padding */
+  .hero .container { padding: 60px 24px; }
+
+  /* Features stats: 1 coluna (remove o grid de 2) */
+  .features-right { grid-template-columns: 1fr; }
+
+  /* Card de stat em destaque: ocupa 1 coluna (não span 2) */
+  .stat-card.featured-stat { grid-column: span 1; }
+}
+
+/* =============================================================
+   BREAKPOINT: ≤ 480px
+   Mobile pequeno — ajustes finos de espaçamento e layout.
+============================================================= */
+@media (max-width: 480px) {
+  /* Quick Access: padding reduzido */
+  .quick-grid { grid-template-columns: 1fr 1fr; padding: 16px; }
+
+  /* Hero: botões empilhados e centralizados */
+  .hero-buttons { flex-direction: column; }
+  .hero-buttons .btn { justify-content: center; }
+
+  /* Chat window: ocupa quase toda a largura */
+  .chat-window {
+    width: calc(100vw - 32px);
+    right: 16px;
+    bottom: 90px;
+  }
+}

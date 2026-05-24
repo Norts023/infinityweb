@@ -1,0 +1,12 @@
+[build]
+  publish = "."
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# Rota limpa para o proxy da IA
+[[redirects]]
+  from = "/api/chat"
+  to   = "/.netlify/functions/groq-proxy"
+  status = 200

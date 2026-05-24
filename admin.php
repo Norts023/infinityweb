@@ -1,128 +1,65 @@
 <?php
 /**
- * Infinity Web — Painel Administrativo
+ * @file admin.php
+ * @description Painel administrativo da Infinity Web — ponto de entrada único.
+ *
+ * Este arquivo é responsável apenas por:
+ *  1. Inicializar a sessão segura
+ *  2. Incluir os módulos de lógica (config, helpers, auth, notices)
+ *  3. Despachar as ações recebidas via GET/POST
+ *  4. Renderizar a view correspondente (setup | login | dashboard | settings)
+ *
+ * Toda lógica de negócio está nos includes:
+ *  includes/config.php   → Constantes de configuração
+ *  includes/helpers.php  → e(), readJson(), writeJson(), csrfToken(), verifyCsrf()
+ *  includes/auth.php     → isLoggedIn(), requireLogin(), rate limit de login
+ *  includes/notices.php  → CRUD de avisos e metadados
  *
  * Segurança:
- *  - Senha armazenada como hash bcrypt (password_hash / password_verify)
- *  - CSRF token em todos os formulários de estado
- *  - Session cookie httpOnly + SameSite=Strict
- *  - Regeneração de ID de sessão após login
- *  - Rate limiting de tentativas de login por IP
- *  - Todo output de dados do usuário escapado com htmlspecialchars (CWE-79)
- *  - Pasta /data bloqueada por .htaccess (sem acesso web direto)
+ *  - Sessão com httpOnly, SameSite=Strict, sem exposição via JS
+ *  - CSRF token em todos os formulários de estado (POST)
+ *  - Rate limiting de login por IP (5 tentativas / 5 minutos)
+ *  - Senhas em bcrypt (password_hash / password_verify) — CWE-916
+ *  - Todo output de dados escapado com e() (CWE-79)
+ *  - Pasta /data inacessível via web (.htaccess)
+ *
+ * @project  Infinity Web — Painel Administrativo
+ * @version  2.0.0
  */
 
-// ─── Configurações ─────────────────────────────────────────────────────────────
-define('DATA_DIR',      __DIR__ . '/data/');
-define('NOTICES_FILE',  DATA_DIR . 'notices.json');
-define('CONFIG_FILE',   DATA_DIR . 'admin-config.json');
-define('LOGIN_RL_FILE', DATA_DIR . 'login-rl.json');
-define('LOGIN_MAX_ATTEMPTS', 5);
-define('LOGIN_LOCKOUT_SEC',  300); // 5 minutos
-
-// ─── Sessão segura ─────────────────────────────────────────────────────────────
+// ─── Sessão segura ──────────────────────────────────────────────────────────
 session_set_cookie_params([
     'lifetime' => 0,
     'path'     => '/',
-    'secure'   => false,      // true em produção com HTTPS
-    'httponly' => true,
+    'secure'   => false,   // Alterar para true em produção com HTTPS
+    'httponly' => true,    // JavaScript não acessa o cookie (CWE-1004)
     'samesite' => 'Strict',
 ]);
 session_start();
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
-function e(string $s): string {
-    return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-}
+// ─── Módulos ────────────────────────────────────────────────────────────────
+require_once __DIR__ . '/includes/config.php';
+require_once __DIR__ . '/includes/helpers.php';
+require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/notices.php';
 
-function readJson(string $path, $default = []) {
-    if (!file_exists($path)) return $default;
-    $data = json_decode(file_get_contents($path), true);
-    return (json_last_error() === JSON_ERROR_NONE) ? $data : $default;
-}
-
-function writeJson(string $path, $data): void {
-    file_put_contents($path, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
-}
-
-function csrfToken(): string {
-    if (empty($_SESSION['csrf'])) {
-        $_SESSION['csrf'] = bin2hex(random_bytes(32));
-    }
-    return $_SESSION['csrf'];
-}
-
-function verifyCsrf(): void {
-    $token = $_POST['csrf'] ?? '';
-    if (!hash_equals($_SESSION['csrf'] ?? '', $token)) {
-        http_response_code(403);
-        die('Token CSRF inválido.');
-    }
-}
-
-function isLoggedIn(): bool {
-    return !empty($_SESSION['admin_logged_in']);
-}
-
-function requireLogin(): void {
-    if (!isLoggedIn()) {
-        header('Location: admin.php');
-        exit;
-    }
-}
-
-// ─── Rate limiting de login ─────────────────────────────────────────────────────
-function checkLoginRateLimit(): bool {
-    $ip   = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-    $data = readJson(LOGIN_RL_FILE, []);
-    $now  = time();
-    $key  = md5($ip);
-
-    if (isset($data[$key])) {
-        $entry = $data[$key];
-        if ($entry['locked_until'] > $now) return false;
-        if (($now - $entry['first_attempt']) > LOGIN_LOCKOUT_SEC) {
-            unset($data[$key]);
-        }
-    }
-    writeJson(LOGIN_RL_FILE, $data);
-    return true;
-}
-
-function recordFailedLogin(): void {
-    $ip   = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-    $data = readJson(LOGIN_RL_FILE, []);
-    $now  = time();
-    $key  = md5($ip);
-
-    if (!isset($data[$key])) {
-        $data[$key] = ['attempts' => 0, 'first_attempt' => $now, 'locked_until' => 0];
-    }
-    $data[$key]['attempts']++;
-    if ($data[$key]['attempts'] >= LOGIN_MAX_ATTEMPTS) {
-        $data[$key]['locked_until'] = $now + LOGIN_LOCKOUT_SEC;
-    }
-    writeJson(LOGIN_RL_FILE, $data);
-}
-
-function clearLoginRateLimit(): void {
-    $ip  = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-    $data = readJson(LOGIN_RL_FILE, []);
-    unset($data[md5($ip)]);
-    writeJson(LOGIN_RL_FILE, $data);
-}
-
-// ─── Ações POST ────────────────────────────────────────────────────────────────
+// ─── Estado inicial ─────────────────────────────────────────────────────────
 $action  = $_GET['action'] ?? 'dashboard';
 $message = '';
 $msgType = 'success';
 $config  = readJson(CONFIG_FILE, []);
-$isSetup = empty($config['password_hash']);
+$isSetup = empty($config['password_hash']); // true se ainda não há senha definida
 
-// Setup inicial — definir senha
+// ─── DESPACHO DE AÇÕES ──────────────────────────────────────────────────────
+
+/**
+ * SETUP INICIAL — Criação da senha de administrador.
+ * Exibido apenas na primeira vez (quando CONFIG_FILE não tem password_hash).
+ */
 if ($isSetup && $_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'setup') {
     $pwd  = $_POST['password']  ?? '';
     $pwd2 = $_POST['password2'] ?? '';
+
     if (strlen($pwd) < 8) {
         $message = 'A senha deve ter pelo menos 8 caracteres.';
         $msgType = 'error';
@@ -137,15 +74,18 @@ if ($isSetup && $_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'setup') {
     }
 }
 
-// Login
+/**
+ * LOGIN — Verificação de credenciais com rate limiting.
+ */
 if (!$isSetup && !isLoggedIn() && $_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'login') {
     verifyCsrf();
     $pwd = $_POST['password'] ?? '';
+
     if (!checkLoginRateLimit()) {
         $message = 'Muitas tentativas. Aguarde 5 minutos.';
         $msgType = 'error';
     } elseif (password_verify($pwd, $config['password_hash'] ?? '')) {
-        session_regenerate_id(true);
+        session_regenerate_id(true); // previne session fixation
         $_SESSION['admin_logged_in'] = true;
         clearLoginRateLimit();
         header('Location: admin.php?action=dashboard');
@@ -154,77 +94,41 @@ if (!$isSetup && !isLoggedIn() && $_SERVER['REQUEST_METHOD'] === 'POST' && $acti
         recordFailedLogin();
         $message = 'Senha incorreta.';
         $msgType = 'error';
-        // Pequeno delay para dificultar brute-force
-        usleep(400_000);
+        usleep(400_000); // atraso artificial — dificulta brute-force por timing
     }
 }
 
-// Logout
+/** LOGOUT — Destrói a sessão e redireciona para a tela de login. */
 if ($action === 'logout') {
     session_destroy();
     header('Location: admin.php');
     exit;
 }
 
-// Criar aviso
+/** CRIAR AVISO — Requer autenticação; delega para notices.php. */
 if (isLoggedIn() && $_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'create') {
-    verifyCsrf();
-    $titulo    = trim(strip_tags($_POST['titulo']   ?? ''));
-    $regiao    = trim(strip_tags($_POST['regiao']   ?? ''));
-    $tipo      = trim(strip_tags($_POST['tipo']     ?? ''));
-    $mensagem  = trim(strip_tags($_POST['mensagem'] ?? ''));
-    $prioridade = trim(strip_tags($_POST['prioridade'] ?? 'media'));
-    $expira    = $_POST['expira'] ?? '';
-
-    if ($titulo && $regiao && $mensagem) {
-        $notices   = readJson(NOTICES_FILE, []);
-        $notices[] = [
-            'id'         => uniqid('n_', true),
-            'titulo'     => $titulo,
-            'regiao'     => $regiao,
-            'tipo'       => $tipo ?: 'instabilidade',
-            'mensagem'   => $mensagem,
-            'prioridade' => $prioridade,
-            'ativo'      => true,
-            'criado_em'  => date('Y-m-d H:i:s'),
-            'expira_em'  => $expira ?: null,
-        ];
-        writeJson(NOTICES_FILE, $notices);
-        $message = '✅ Aviso criado e ativado com sucesso!';
-    } else {
-        $message = 'Preencha título, região e mensagem.';
-        $msgType = 'error';
-    }
+    $result  = handleCreateNotice();
+    $message = $result['message'];
+    $msgType = $result['type'];
 }
 
-// Toggle ativo/inativo
+/** TOGGLE AVISO — Alterna ativo/inativo pelo ID na query string. */
 if (isLoggedIn() && $action === 'toggle' && !empty($_GET['id'])) {
-    $id      = $_GET['id'];
-    $notices = readJson(NOTICES_FILE, []);
-    foreach ($notices as &$n) {
-        if ($n['id'] === $id) { $n['ativo'] = !$n['ativo']; break; }
-    }
-    writeJson(NOTICES_FILE, $notices);
-    header('Location: admin.php?action=dashboard&msg=toggled');
-    exit;
+    handleToggleNotice($_GET['id']); // redireciona internamente
 }
 
-// Deletar aviso
+/** DELETAR AVISO — Remove pelo ID na query string. */
 if (isLoggedIn() && $action === 'delete' && !empty($_GET['id'])) {
-    $id      = $_GET['id'];
-    $notices = readJson(NOTICES_FILE, []);
-    $notices = array_values(array_filter($notices, fn($n) => $n['id'] !== $id));
-    writeJson(NOTICES_FILE, $notices);
-    header('Location: admin.php?action=dashboard&msg=deleted');
-    exit;
+    handleDeleteNotice($_GET['id']); // redireciona internamente
 }
 
-// Trocar senha
+/** TROCAR SENHA — Requer autenticação e verificação da senha atual. */
 if (isLoggedIn() && $_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'change-password') {
     verifyCsrf();
-    $atual = $_POST['atual']    ?? '';
-    $nova  = $_POST['nova']     ?? '';
-    $nova2 = $_POST['nova2']    ?? '';
+    $atual = $_POST['atual'] ?? '';
+    $nova  = $_POST['nova']  ?? '';
+    $nova2 = $_POST['nova2'] ?? '';
+
     if (!password_verify($atual, $config['password_hash'] ?? '')) {
         $message = 'Senha atual incorreta.';
         $msgType = 'error';
@@ -241,24 +145,34 @@ if (isLoggedIn() && $_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'change
     }
 }
 
-// Mensagens de query string
+/** Mensagens vindas via query string (após redirecionamentos) */
 if (empty($message) && !empty($_GET['msg'])) {
-    $msgs = ['toggled' => '🔄 Status do aviso atualizado.', 'deleted' => '🗑️ Aviso removido.'];
+    $msgs    = ['toggled' => '🔄 Status do aviso atualizado.', 'deleted' => '🗑️ Aviso removido.'];
     $message = $msgs[$_GET['msg']] ?? '';
 }
 
-// Dados para o dashboard
-$notices = readJson(NOTICES_FILE, []);
-$ativos  = array_filter($notices, fn($n) => $n['ativo']);
-$now     = date('Y-m-d H:i:s');
+// ─── DADOS PARA A VIEW ───────────────────────────────────────────────────────
+$notices   = readJson(NOTICES_FILE, []);
+$ativos    = array_filter($notices, fn($n) => $n['ativo']);
+$now       = date('Y-m-d H:i:s');
 $expirados = array_filter($ativos, fn($n) => $n['expira_em'] && $n['expira_em'] < $now);
 
-// Tipologias e regiões
-$tipos = ['instabilidade' => '⚡ Instabilidade', 'manutencao' => '🔧 Manutenção', 'queda' => '🔴 Queda Total', 'normalizado' => '✅ Normalizado'];
-$prioridades = ['alta' => 'Alta', 'media' => 'Média', 'baixa' => 'Baixa'];
-$regioes = ['Jordanesia', 'Cajamar Centro', 'Região Industrial', 'Polvilho', 'Todas as regiões', 'Outra'];
+// Metadados de opções dos selects
+$meta       = getNoticesMeta();
+$tipos      = $meta['tipos'];
+$prioridades = $meta['prioridades'];
+$regioes    = $meta['regioes'];
 
 ?><!DOCTYPE html>
+<!--
+  admin.php — Painel administrativo da Infinity Web
+  =================================================
+  Módulos PHP incluídos:
+    includes/config.php   → Constantes (caminhos, limites)
+    includes/helpers.php  → e(), readJson(), writeJson(), csrfToken(), verifyCsrf()
+    includes/auth.php     → isLoggedIn(), requireLogin(), rate limit
+    includes/notices.php  → CRUD de avisos, getNoticesMeta()
+-->
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8"/>
@@ -268,6 +182,7 @@ $regioes = ['Jordanesia', 'Cajamar Centro', 'Região Industrial', 'Polvilho', 'T
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
   <style>
+    /* ── Reset & Variáveis ───────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --blue-900: #0a1628; --blue-800: #0d1f3c; --blue-700: #102a52;
@@ -278,14 +193,14 @@ $regioes = ['Jordanesia', 'Cajamar Centro', 'Região Industrial', 'Polvilho', 'T
       --gray-200: #e2e8f0; --gray-400: #94a3b8; --gray-600: #475569; --gray-800: #1e293b;
       --radius: 12px; --radius-sm: 8px;
       --shadow: 0 4px 20px rgba(0,0,0,.1);
+      --transition: .2s ease;
     }
     body { font-family: 'Inter', sans-serif; background: var(--gray-100); color: var(--gray-800); min-height: 100vh; }
     a { text-decoration: none; color: inherit; }
 
-    /* ── Topbar ── */
+    /* ── Topbar ─────────────────────────────────────────────────── */
     .topbar {
-      background: var(--blue-900);
-      color: rgba(255,255,255,.9);
+      background: var(--blue-900); color: rgba(255,255,255,.9);
       padding: 14px 24px;
       display: flex; align-items: center; justify-content: space-between;
     }
@@ -293,48 +208,52 @@ $regioes = ['Jordanesia', 'Cajamar Centro', 'Região Industrial', 'Polvilho', 'T
     .topbar-brand .icon { width: 36px; height: 36px; background: linear-gradient(135deg,var(--blue-400),var(--orange)); border-radius: 8px; display: grid; place-items: center; font-size: 1.1rem; }
     .topbar-brand span { color: var(--orange); }
     .topbar-right { display: flex; align-items: center; gap: 12px; }
-    .topbar-right a { font-size: .85rem; color: rgba(255,255,255,.6); display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; transition: .2s; }
+    .topbar-right a { font-size: .85rem; color: rgba(255,255,255,.6); display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; transition: var(--transition); }
     .topbar-right a:hover { background: rgba(255,255,255,.1); color: #fff; }
 
-    /* ── Layout ── */
+    /* ── Layout principal ───────────────────────────────────────── */
     .layout { display: grid; grid-template-columns: 240px 1fr; min-height: calc(100vh - 64px); }
 
-    /* ── Sidebar ── */
+    /* ── Sidebar ────────────────────────────────────────────────── */
     .sidebar { background: var(--blue-800); padding: 24px 0; }
-    .sidebar-section { padding: 0 16px; margin-bottom: 8px; }
-    .sidebar-label { font-size: .7rem; font-weight: 700; color: rgba(255,255,255,.3); text-transform: uppercase; letter-spacing: .08em; padding: 8px 8px 4px; }
+    .sidebar-label { font-size: .7rem; font-weight: 700; color: rgba(255,255,255,.3); text-transform: uppercase; letter-spacing: .08em; padding: 8px 24px 4px; }
     .sidebar a {
       display: flex; align-items: center; gap: 10px;
       padding: 10px 24px; color: rgba(255,255,255,.65); font-size: .88rem; font-weight: 500;
-      transition: .2s; border-left: 3px solid transparent;
+      transition: var(--transition); border-left: 3px solid transparent;
     }
-    .sidebar a:hover, .sidebar a.active { color: #fff; background: rgba(255,255,255,.07); border-left-color: var(--orange); }
+    .sidebar a:hover,
+    .sidebar a.active { color: #fff; background: rgba(255,255,255,.07); border-left-color: var(--orange); }
     .sidebar a i { width: 16px; color: var(--orange); }
+    .sidebar-footer { padding: 24px; border-top: 1px solid rgba(255,255,255,.08); margin-top: 32px; }
+    .sidebar-footer .label { font-size: .75rem; color: rgba(255,255,255,.3); margin-bottom: 8px; }
+    .sidebar-footer .status { display: flex; align-items: center; gap: 6px; font-size: .82rem; color: rgba(255,255,255,.6); }
+    .dot-online { width: 8px; height: 8px; background: #4ade80; border-radius: 50%; display: inline-block; }
 
-    /* ── Main ── */
+    /* ── Área principal ─────────────────────────────────────────── */
     .main { padding: 32px; overflow-y: auto; }
     .page-header { margin-bottom: 28px; }
     .page-header h1 { font-size: 1.5rem; font-weight: 800; color: var(--blue-900); }
     .page-header p { color: var(--gray-600); font-size: .9rem; margin-top: 4px; }
 
-    /* ── Stats row ── */
+    /* ── Cards de estatística ───────────────────────────────────── */
     .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
     .stat-card { background: var(--white); border-radius: var(--radius); padding: 20px; border: 1px solid var(--gray-200); display: flex; align-items: center; gap: 16px; }
     .stat-icon { width: 48px; height: 48px; border-radius: 10px; display: grid; place-items: center; font-size: 1.3rem; flex-shrink: 0; }
-    .si-total  { background: rgba(30,77,155,.1); color: var(--blue-500); }
+    .si-total  { background: rgba(30,77,155,.1);  color: var(--blue-500); }
     .si-active { background: rgba(220,38,38,.1);  color: var(--red); }
     .si-ok     { background: rgba(22,163,74,.1);  color: var(--green); }
     .si-exp    { background: rgba(217,119,6,.1);  color: var(--yellow); }
     .stat-info .num { font-size: 1.8rem; font-weight: 900; line-height: 1; }
     .stat-info .lbl { font-size: .78rem; color: var(--gray-400); margin-top: 2px; }
 
-    /* ── Cards ── */
+    /* ── Cards de conteúdo ──────────────────────────────────────── */
     .card { background: var(--white); border-radius: var(--radius); border: 1px solid var(--gray-200); overflow: hidden; margin-bottom: 24px; }
     .card-header { padding: 16px 20px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between; }
     .card-header h3 { font-size: 1rem; font-weight: 700; }
     .card-body { padding: 20px; }
 
-    /* ── Form ── */
+    /* ── Formulários ────────────────────────────────────────────── */
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .form-group { display: flex; flex-direction: column; gap: 6px; }
     .form-group.full { grid-column: span 2; }
@@ -344,13 +263,15 @@ $regioes = ['Jordanesia', 'Cajamar Centro', 'Região Industrial', 'Polvilho', 'T
     .form-group textarea {
       padding: 10px 14px; border: 2px solid var(--gray-200); border-radius: var(--radius-sm);
       font-family: inherit; font-size: .9rem; color: var(--gray-800); background: var(--white);
-      transition: .2s; outline: none;
+      transition: var(--transition); outline: none;
     }
-    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--blue-400); box-shadow: 0 0 0 3px rgba(37,99,196,.1); }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus { border-color: var(--blue-400); box-shadow: 0 0 0 3px rgba(37,99,196,.1); }
     .form-group textarea { min-height: 80px; resize: vertical; }
 
-    /* ── Buttons ── */
-    .btn { display: inline-flex; align-items: center; gap: 7px; padding: 10px 20px; border-radius: var(--radius-sm); font-weight: 700; font-size: .88rem; cursor: pointer; border: none; transition: .2s; }
+    /* ── Botões ─────────────────────────────────────────────────── */
+    .btn { display: inline-flex; align-items: center; gap: 7px; padding: 10px 20px; border-radius: var(--radius-sm); font-weight: 700; font-size: .88rem; cursor: pointer; border: none; transition: var(--transition); }
     .btn-primary { background: var(--blue-500); color: #fff; }
     .btn-primary:hover { background: var(--blue-400); }
     .btn-orange { background: var(--orange); color: #fff; }
@@ -360,21 +281,22 @@ $regioes = ['Jordanesia', 'Cajamar Centro', 'Região Industrial', 'Polvilho', 'T
     .btn-danger:hover { background: var(--red); color: #fff; }
     .btn-ghost { background: var(--gray-100); color: var(--gray-600); }
     .btn-ghost:hover { background: var(--gray-200); }
+    .btn-full { width: 100%; justify-content: center; padding: 14px; font-size: .95rem; }
 
-    /* ── Notice table ── */
+    /* ── Lista de avisos ────────────────────────────────────────── */
     .notice-list { display: flex; flex-direction: column; gap: 12px; }
-    .notice-item { border: 1px solid var(--gray-200); border-radius: var(--radius-sm); padding: 16px; display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: start; transition: .2s; }
+    .notice-item { border: 1px solid var(--gray-200); border-radius: var(--radius-sm); padding: 16px; display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: start; transition: var(--transition); }
     .notice-item:hover { border-color: var(--blue-300); background: var(--gray-50); }
     .notice-item.inactive { opacity: .55; }
     .notice-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
     .notice-title { font-weight: 700; font-size: .95rem; }
     .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 99px; font-size: .72rem; font-weight: 700; }
-    .badge-active   { background: rgba(22,163,74,.1);  color: var(--green); }
+    .badge-active   { background: rgba(22,163,74,.1);   color: var(--green); }
     .badge-inactive { background: rgba(148,163,184,.15); color: var(--gray-400); }
-    .badge-alta     { background: rgba(220,38,38,.1);  color: var(--red); }
-    .badge-media    { background: rgba(217,119,6,.1);  color: var(--yellow); }
-    .badge-baixa    { background: rgba(22,163,74,.1);  color: var(--green); }
-    .badge-tipo     { background: rgba(37,99,196,.1);  color: var(--blue-400); }
+    .badge-alta     { background: rgba(220,38,38,.1);   color: var(--red); }
+    .badge-media    { background: rgba(217,119,6,.1);   color: var(--yellow); }
+    .badge-baixa    { background: rgba(22,163,74,.1);   color: var(--green); }
+    .badge-tipo     { background: rgba(37,99,196,.1);   color: var(--blue-400); }
     .notice-region  { font-size: .82rem; color: var(--gray-600); display: flex; align-items: center; gap: 5px; }
     .notice-msg     { font-size: .88rem; color: var(--gray-600); margin-top: 6px; }
     .notice-meta    { font-size: .75rem; color: var(--gray-400); margin-top: 8px; display: flex; gap: 12px; flex-wrap: wrap; }
@@ -383,12 +305,12 @@ $regioes = ['Jordanesia', 'Cajamar Centro', 'Região Industrial', 'Polvilho', 'T
     .empty-state i { font-size: 2.5rem; margin-bottom: 12px; }
     .empty-state p { font-size: .9rem; }
 
-    /* ── Alert messages ── */
+    /* ── Alertas de feedback ────────────────────────────────────── */
     .alert { padding: 12px 16px; border-radius: var(--radius-sm); font-size: .9rem; font-weight: 500; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
-    .alert-success { background: rgba(22,163,74,.1);  color: var(--green);  border: 1px solid rgba(22,163,74,.2); }
-    .alert-error   { background: rgba(220,38,38,.1);  color: var(--red);    border: 1px solid rgba(220,38,38,.2); }
+    .alert-success { background: rgba(22,163,74,.1);  color: var(--green); border: 1px solid rgba(22,163,74,.2); }
+    .alert-error   { background: rgba(220,38,38,.1);  color: var(--red);   border: 1px solid rgba(220,38,38,.2); }
 
-    /* ── Login / Setup pages ── */
+    /* ── Páginas de autenticação (setup e login) ────────────────── */
     .auth-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--blue-900), var(--blue-700)); }
     .auth-card { background: var(--white); border-radius: 20px; padding: 40px; width: 100%; max-width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
     .auth-logo { display: flex; align-items: center; gap: 10px; font-size: 1.3rem; font-weight: 900; margin-bottom: 28px; }
@@ -398,16 +320,15 @@ $regioes = ['Jordanesia', 'Cajamar Centro', 'Região Industrial', 'Polvilho', 'T
     .auth-card p  { font-size: .88rem; color: var(--gray-600); margin-bottom: 24px; }
     .form-group-auth { margin-bottom: 16px; }
     .form-group-auth label { display: block; font-size: .82rem; font-weight: 600; color: var(--gray-600); margin-bottom: 6px; }
-    .form-group-auth input { width: 100%; padding: 12px 14px; border: 2px solid var(--gray-200); border-radius: var(--radius-sm); font-family: inherit; font-size: .92rem; outline: none; transition: .2s; }
+    .form-group-auth input { width: 100%; padding: 12px 14px; border: 2px solid var(--gray-200); border-radius: var(--radius-sm); font-family: inherit; font-size: .92rem; outline: none; transition: var(--transition); }
     .form-group-auth input:focus { border-color: var(--blue-400); box-shadow: 0 0 0 3px rgba(37,99,196,.1); }
-    .btn-full { width: 100%; justify-content: center; padding: 14px; font-size: .95rem; }
 
-    /* ── Preview IA ── */
+    /* ── Preview da resposta da IA ──────────────────────────────── */
     .ia-preview { background: linear-gradient(135deg, var(--blue-800), var(--blue-900)); border-radius: var(--radius); padding: 20px; color: #fff; margin-top: 20px; }
     .ia-preview h4 { font-size: .85rem; color: rgba(255,255,255,.5); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px; }
     .ia-bubble { background: rgba(255,255,255,.08); border-radius: 12px; padding: 14px 16px; font-size: .88rem; line-height: 1.6; color: rgba(255,255,255,.9); border-bottom-left-radius: 2px; }
 
-    /* ── Responsive ── */
+    /* ── Responsivo ─────────────────────────────────────────────── */
     @media (max-width: 768px) {
       .layout { grid-template-columns: 1fr; }
       .sidebar { display: none; }
@@ -420,9 +341,10 @@ $regioes = ['Jordanesia', 'Cajamar Centro', 'Região Industrial', 'Polvilho', 'T
 <body>
 
 <?php if ($isSetup): ?>
-<!-- ═══════════════════════════════════════════════════════
-     SETUP INICIAL — Criar senha de administrador
-═══════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════════════════════
+     VIEW: SETUP INICIAL
+     Exibida apenas na primeira execução, quando não há senha definida.
+═══════════════════════════════════════════════════════════════════ -->
 <div class="auth-page">
   <div class="auth-card">
     <div class="auth-logo">
@@ -441,12 +363,12 @@ $regioes = ['Jordanesia', 'Cajamar Centro', 'Região Industrial', 'Polvilho', 'T
 
     <form method="POST" action="admin.php?action=setup">
       <div class="form-group-auth">
-        <label>Nova senha (mín. 8 caracteres)</label>
-        <input type="password" name="password" required minlength="8" placeholder="••••••••" autofocus/>
+        <label for="setup-pwd">Nova senha (mín. 8 caracteres)</label>
+        <input type="password" id="setup-pwd" name="password" required minlength="8" placeholder="••••••••" autofocus/>
       </div>
       <div class="form-group-auth">
-        <label>Confirmar senha</label>
-        <input type="password" name="password2" required minlength="8" placeholder="••••••••"/>
+        <label for="setup-pwd2">Confirmar senha</label>
+        <input type="password" id="setup-pwd2" name="password2" required minlength="8" placeholder="••••••••"/>
       </div>
       <button type="submit" class="btn btn-orange btn-full">
         <i class="fas fa-shield-alt"></i> Criar senha e entrar
@@ -456,9 +378,10 @@ $regioes = ['Jordanesia', 'Cajamar Centro', 'Região Industrial', 'Polvilho', 'T
 </div>
 
 <?php elseif (!isLoggedIn()): ?>
-<!-- ═══════════════════════════════════════════════════════
-     LOGIN
-═══════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════════════════════
+     VIEW: LOGIN
+     Formulário de autenticação com proteção CSRF e rate limiting.
+═══════════════════════════════════════════════════════════════════ -->
 <div class="auth-page">
   <div class="auth-card">
     <div class="auth-logo">
@@ -476,10 +399,11 @@ $regioes = ['Jordanesia', 'Cajamar Centro', 'Região Industrial', 'Polvilho', 'T
     <?php endif; ?>
 
     <form method="POST" action="admin.php?action=login">
+      <!-- Token CSRF — gerado em helpers.php → csrfToken() -->
       <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>"/>
       <div class="form-group-auth">
-        <label>Senha de administrador</label>
-        <input type="password" name="password" required placeholder="••••••••" autofocus/>
+        <label for="login-pwd">Senha de administrador</label>
+        <input type="password" id="login-pwd" name="password" required placeholder="••••••••" autofocus/>
       </div>
       <button type="submit" class="btn btn-primary btn-full">
         <i class="fas fa-sign-in-alt"></i> Entrar
@@ -489,11 +413,11 @@ $regioes = ['Jordanesia', 'Cajamar Centro', 'Região Industrial', 'Polvilho', 'T
 </div>
 
 <?php else: ?>
-<!-- ═══════════════════════════════════════════════════════
-     PAINEL ADMIN
-═══════════════════════════════════════════════════════ -->
+<!-- ═══════════════════════════════════════════════════════════════════
+     VIEW: PAINEL ADMIN (usuário autenticado)
+═══════════════════════════════════════════════════════════════════ -->
 
-<!-- Topbar -->
+<!-- Topbar do painel -->
 <div class="topbar">
   <div class="topbar-brand">
     <div class="icon">∞</div>
@@ -501,32 +425,37 @@ $regioes = ['Jordanesia', 'Cajamar Centro', 'Região Industrial', 'Polvilho', 'T
     <span style="color:rgba(255,255,255,.3);font-weight:400;font-size:.85rem">/ Admin</span>
   </div>
   <div class="topbar-right">
-    <a href="index.html" target="_blank"><i class="fas fa-external-link-alt"></i> Ver site</a>
-    <a href="admin.php?action=logout"><i class="fas fa-sign-out-alt"></i> Sair</a>
+    <a href="index.html" target="_blank" rel="noopener noreferrer">
+      <i class="fas fa-external-link-alt"></i> Ver site
+    </a>
+    <a href="admin.php?action=logout">
+      <i class="fas fa-sign-out-alt"></i> Sair
+    </a>
   </div>
 </div>
 
 <div class="layout">
 
-  <!-- Sidebar -->
-  <nav class="sidebar">
-    <div class="sidebar-label" style="padding:16px 24px 8px">Menu</div>
-    <a href="admin.php?action=dashboard" class="<?= $action === 'dashboard' || $action === 'create' ? 'active' : '' ?>">
-      <i class="fas fa-bell"></i> Avisos & Alertas
+  <!-- Sidebar de navegação -->
+  <nav class="sidebar" aria-label="Menu administrativo">
+    <div class="sidebar-label">Menu</div>
+    <a href="admin.php?action=dashboard"
+       class="<?= in_array($action, ['dashboard','create']) ? 'active' : '' ?>">
+      <i class="fas fa-bell"></i> Avisos &amp; Alertas
     </a>
-    <a href="admin.php?action=settings" class="<?= $action === 'settings' ? 'active' : '' ?>">
+    <a href="admin.php?action=settings"
+       class="<?= $action === 'settings' ? 'active' : '' ?>">
       <i class="fas fa-cog"></i> Configurações
     </a>
-    <div style="margin-top:auto; padding: 24px; border-top:1px solid rgba(255,255,255,.08); margin-top: 32px;">
-      <div style="font-size:.75rem;color:rgba(255,255,255,.3);margin-bottom:8px;">IA conectada</div>
-      <div style="display:flex;align-items:center;gap:6px;font-size:.82rem;color:rgba(255,255,255,.6);">
-        <span style="width:8px;height:8px;background:#4ade80;border-radius:50%;display:inline-block;"></span>
-        Groq llama3-8b
+    <div class="sidebar-footer">
+      <div class="label">IA conectada</div>
+      <div class="status">
+        <span class="dot-online"></span> Groq llama3-8b
       </div>
     </div>
   </nav>
 
-  <!-- Main content -->
+  <!-- Conteúdo principal -->
   <main class="main">
 
     <?php if ($message): ?>
@@ -537,14 +466,14 @@ $regioes = ['Jordanesia', 'Cajamar Centro', 'Região Industrial', 'Polvilho', 'T
     <?php endif; ?>
 
     <!-- ─── DASHBOARD / AVISOS ─── -->
-    <?php if ($action === 'dashboard' || $action === 'create'): ?>
+    <?php if (in_array($action, ['dashboard', 'create'])): ?>
 
       <div class="page-header">
-        <h1>Avisos & Alertas</h1>
+        <h1>Avisos &amp; Alertas</h1>
         <p>Crie avisos de instabilidade, manutenção ou quedas. A IA informará os clientes automaticamente no chat.</p>
       </div>
 
-      <!-- Stats -->
+      <!-- Cards de estatísticas -->
       <div class="stats">
         <div class="stat-card">
           <div class="stat-icon si-total"><i class="fas fa-list"></i></div>
@@ -576,50 +505,53 @@ $regioes = ['Jordanesia', 'Cajamar Centro', 'Região Industrial', 'Polvilho', 'T
         </div>
       </div>
 
-      <!-- Criar novo aviso -->
+      <!-- Formulário de criação de aviso -->
       <div class="card">
         <div class="card-header">
           <h3><i class="fas fa-plus-circle" style="color:var(--orange)"></i> &nbsp;Novo Aviso</h3>
         </div>
         <div class="card-body">
+          <!-- handleCreateNotice() em includes/notices.php processa este POST -->
           <form method="POST" action="admin.php?action=create">
             <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>"/>
             <div class="form-grid">
               <div class="form-group">
-                <label>Título do aviso</label>
-                <input type="text" name="titulo" placeholder="Ex: Instabilidade no sinal" required maxlength="120"/>
+                <label for="titulo">Título do aviso</label>
+                <input type="text" id="titulo" name="titulo" placeholder="Ex: Instabilidade no sinal" required maxlength="120"/>
               </div>
               <div class="form-group">
-                <label>Região afetada</label>
-                <select name="regiao">
+                <label for="regiao">Região afetada</label>
+                <select id="regiao" name="regiao">
                   <?php foreach ($regioes as $r): ?>
                     <option value="<?= e($r) ?>"><?= e($r) ?></option>
                   <?php endforeach; ?>
                 </select>
               </div>
               <div class="form-group">
-                <label>Tipo de ocorrência</label>
-                <select name="tipo">
+                <label for="tipo">Tipo de ocorrência</label>
+                <select id="tipo" name="tipo">
                   <?php foreach ($tipos as $k => $v): ?>
                     <option value="<?= e($k) ?>"><?= e($v) ?></option>
                   <?php endforeach; ?>
                 </select>
               </div>
               <div class="form-group">
-                <label>Prioridade</label>
-                <select name="prioridade">
+                <label for="prioridade">Prioridade</label>
+                <select id="prioridade" name="prioridade">
                   <option value="alta">🔴 Alta — impacto severo</option>
                   <option value="media" selected>🟡 Média — impacto parcial</option>
                   <option value="baixa">🟢 Baixa — impacto mínimo</option>
                 </select>
               </div>
               <div class="form-group full">
-                <label>Mensagem para a IA (o que informar aos clientes)</label>
-                <textarea name="mensagem" placeholder="Ex: Estamos com instabilidade de sinal em Jordanesia. Nossa equipe técnica está em campo e trabalhando para normalizar o serviço o mais rápido possível. Previsão de normalização: 2 horas." required maxlength="600"></textarea>
+                <label for="mensagem">Mensagem para a IA (o que informar aos clientes)</label>
+                <textarea id="mensagem" name="mensagem"
+                  placeholder="Ex: Estamos com instabilidade de sinal em Jordanesia. Nossa equipe técnica está em campo. Previsão de normalização: 2 horas."
+                  required maxlength="600"></textarea>
               </div>
               <div class="form-group">
-                <label>Expira em (opcional)</label>
-                <input type="datetime-local" name="expira"/>
+                <label for="expira">Expira em (opcional)</label>
+                <input type="datetime-local" id="expira" name="expira"/>
               </div>
               <div class="form-group" style="display:flex;align-items:flex-end;">
                 <button type="submit" class="btn btn-orange" style="width:100%;justify-content:center;padding:12px;">
@@ -629,18 +561,19 @@ $regioes = ['Jordanesia', 'Cajamar Centro', 'Região Industrial', 'Polvilho', 'T
             </div>
           </form>
 
-          <!-- Preview IA -->
+          <!-- Preview da resposta que a IA dará ao cliente -->
           <div class="ia-preview">
             <h4><i class="fas fa-robot"></i> &nbsp;Preview — como a IA vai responder</h4>
             <div class="ia-bubble">
               🔴 <strong>Atenção!</strong> Neste momento temos um aviso ativo em nossa rede.<br><br>
-              Estamos cientes da ocorrência e nossa equipe técnica já está trabalhando para resolver o mais rápido possível. Se preferir, pode acompanhar as atualizações ou entrar em contato pelo WhatsApp <strong>(11) 96401-2136</strong>. Pedimos desculpas pelo transtorno! 🙏
+              Estamos cientes da ocorrência e nossa equipe técnica já está trabalhando para resolver o mais rápido possível.
+              Se preferir, pode entrar em contato pelo WhatsApp <strong>(11) 96401-2136</strong>. Pedimos desculpas pelo transtorno! 🙏
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Lista de avisos -->
+      <!-- Lista de avisos cadastrados -->
       <div class="card">
         <div class="card-header">
           <h3><i class="fas fa-list" style="color:var(--blue-400)"></i> &nbsp;Avisos cadastrados</h3>
@@ -654,11 +587,10 @@ $regioes = ['Jordanesia', 'Cajamar Centro', 'Região Industrial', 'Polvilho', 'T
             </div>
           <?php else: ?>
             <div class="notice-list">
-              <?php foreach (array_reverse($notices) as $n): ?>
-                <?php
-                  $expired = $n['expira_em'] && $n['expira_em'] < $now;
-                  $priClass = 'badge-' . ($n['prioridade'] ?? 'media');
-                ?>
+              <?php foreach (array_reverse($notices) as $n):
+                $expired  = $n['expira_em'] && $n['expira_em'] < $now;
+                $priClass = 'badge-' . ($n['prioridade'] ?? 'media');
+              ?>
                 <div class="notice-item <?= !$n['ativo'] ? 'inactive' : '' ?>">
                   <div>
                     <div class="notice-top">
@@ -686,11 +618,13 @@ $regioes = ['Jordanesia', 'Cajamar Centro', 'Região Industrial', 'Polvilho', 'T
                     </div>
                   </div>
                   <div class="notice-actions">
+                    <!-- handleToggleNotice() em includes/notices.php -->
                     <a href="admin.php?action=toggle&id=<?= urlencode($n['id']) ?>"
                        class="btn btn-sm <?= $n['ativo'] ? 'btn-ghost' : 'btn-primary' ?>">
                       <i class="fas fa-<?= $n['ativo'] ? 'pause' : 'play' ?>"></i>
                       <?= $n['ativo'] ? 'Pausar' : 'Ativar' ?>
                     </a>
+                    <!-- handleDeleteNotice() em includes/notices.php -->
                     <a href="admin.php?action=delete&id=<?= urlencode($n['id']) ?>"
                        class="btn btn-sm btn-danger"
                        onclick="return confirm('Confirma exclusão deste aviso?')">
@@ -713,23 +647,27 @@ $regioes = ['Jordanesia', 'Cajamar Centro', 'Região Industrial', 'Polvilho', 'T
       </div>
 
       <div class="card" style="max-width:480px">
-        <div class="card-header"><h3><i class="fas fa-key" style="color:var(--orange)"></i> &nbsp;Alterar senha</h3></div>
+        <div class="card-header">
+          <h3><i class="fas fa-key" style="color:var(--orange)"></i> &nbsp;Alterar senha</h3>
+        </div>
         <div class="card-body">
           <form method="POST" action="admin.php?action=change-password">
             <input type="hidden" name="csrf" value="<?= e(csrfToken()) ?>"/>
             <div class="form-group" style="margin-bottom:14px">
-              <label>Senha atual</label>
-              <input type="password" name="atual" required/>
+              <label for="pwd-atual">Senha atual</label>
+              <input type="password" id="pwd-atual" name="atual" required/>
             </div>
             <div class="form-group" style="margin-bottom:14px">
-              <label>Nova senha (mín. 8 caracteres)</label>
-              <input type="password" name="nova" required minlength="8"/>
+              <label for="pwd-nova">Nova senha (mín. 8 caracteres)</label>
+              <input type="password" id="pwd-nova" name="nova" required minlength="8"/>
             </div>
             <div class="form-group" style="margin-bottom:20px">
-              <label>Confirmar nova senha</label>
-              <input type="password" name="nova2" required minlength="8"/>
+              <label for="pwd-nova2">Confirmar nova senha</label>
+              <input type="password" id="pwd-nova2" name="nova2" required minlength="8"/>
             </div>
-            <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Salvar senha</button>
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-save"></i> Salvar senha
+            </button>
           </form>
         </div>
       </div>
