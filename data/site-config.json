@@ -24,17 +24,7 @@
       }
     ]
   },
-  "avisos": [
-    {
-      "id": "n_1779666003953",
-      "tipo": "manutencao",
-      "regiao": "Polvilho",
-      "titulo": "Queda poste",
-      "mensagem": "Comunicado de Manutenção de Rede\n\nInformamos que nossa rede está passando por uma manutenção programada no momento. Durante esse período, pode haver instabilidade ou indisponibilidade de acesso à internet e a alguns serviços.\n\nA previsão é que a conexão seja restabelecida em até 2 horas, contadas a partir deste aviso. Nossa equipe já está atuando para concluir os ajustes o mais rápido possível e normalizar o serviço.\n\nAgradecemos a compreensão e pedimos desculpas por qualquer inconveniente. Em caso de necessidade, entre em contato com o suporte.",
-      "ativo": true,
-      "criado_em": "24/05/2026, 20:40:03"
-    }
-  ],
+  "avisos": [],
   "contato": {
     "whatsapp": "5511964012136",
     "whatsapp_display": "(11) 96401-2136",
@@ -43,12 +33,6 @@
     "endereco": "Rua Vereador Mário Marcolongo, 193, Jordanesia — Cajamar-SP"
   },
   "cobertura": {
-    "regioes": [
-      "Jordanesia",
-      "Cajamar Centro",
-      "Região Industrial",
-      "Polvilho",
-      "malhada de pedras"
-    ]
+    "regioes": ["Jordanesia", "Cajamar Centro", "Região Industrial", "Polvilho"]
   }
 }

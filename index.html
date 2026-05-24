@@ -925,59 +925,220 @@
   <script src="assets/js/form.js"></script>          <!-- Formulário de contato -->
   <script src="assets/js/chat.js"></script>          <!-- Widget de IA (Groq) -->
 
-  <!-- ── Leaflet.js + inicialização do mapa de cobertura ──────────── -->
+  <!-- ── Leaflet.js + mapa dinâmico de cobertura ──────────────────── -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" crossorigin="anonymous"></script>
   <script>
-    (function () {
-      var mapEl = document.getElementById('coverageMap');
-      if (!mapEl || typeof L === 'undefined') return;
+  (function () {
+    var mapEl = document.getElementById('coverageMap');
+    if (!mapEl || typeof L === 'undefined') return;
 
-      /* Coordenadas centrais: Jordanesia — Cajamar-SP */
-      var LAT = -23.3635, LNG = -46.8748;
+    /* Centro padrão: Jordanesia — Cajamar-SP */
+    var CENTER = [-23.3635, -46.8748];
 
-      var map = L.map('coverageMap', {
-        center:          [LAT, LNG],
-        zoom:            14,
-        scrollWheelZoom: false,   /* evita scroll acidental na página */
-        zoomControl:     true,
+    /* Coordenadas pré-definidas para regiões conhecidas (fallback) */
+    var REGION_COORDS = {
+      'jordanesia':        [-23.3635, -46.8748],
+      'cajamar centro':    [-23.3580, -46.8820],
+      'região industrial': [-23.3720, -46.8900],
+      'polvilho':          [-23.3900, -46.8580],
+    };
+
+    /* Configurações visuais por status de rede */
+    var STATUS = {
+      normal:        { color: '#10b981', fill: '#10b981', icon: 'fa-wifi',                label: '✅ Sinal Normal' },
+      normalizado:   { color: '#10b981', fill: '#10b981', icon: 'fa-check-circle',        label: '✅ Normalizado' },
+      instabilidade: { color: '#f59e0b', fill: '#f59e0b', icon: 'fa-exclamation-triangle',label: '⚡ Instabilidade' },
+      manutencao:    { color: '#3b82f6', fill: '#3b82f6', icon: 'fa-wrench',              label: '🔧 Manutenção' },
+      queda:         { color: '#ef4444', fill: '#ef4444', icon: 'fa-times-circle',        label: '🔴 Queda Total' },
+    };
+
+    /* Prioridade de status (queda sobrepõe instabilidade, etc.) */
+    var PRIORITY = { queda: 4, instabilidade: 3, manutencao: 2, normalizado: 1, normal: 0 };
+
+    /* Cache de geocodificação (localStorage) */
+    var CACHE_KEY = 'iw_geo_v1';
+    function geoCache()    { try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}'); } catch { return {}; } }
+    function geoSave(k, v) { try { var c = geoCache(); c[k] = v; localStorage.setItem(CACHE_KEY, JSON.stringify(c)); } catch {} }
+
+    /* Geocodifica uma região usando Nominatim (OpenStreetMap) */
+    async function geocode(name) {
+      var key = name.toLowerCase().trim();
+
+      /* 1. Coordenadas pré-definidas */
+      if (REGION_COORDS[key]) return REGION_COORDS[key];
+
+      /* 2. Cache local */
+      var cache = geoCache();
+      if (cache[key]) return cache[key];
+
+      /* 3. Nominatim API (limite: 1 req/s) */
+      try {
+        var q   = encodeURIComponent(name + ', Cajamar, São Paulo, Brasil');
+        var res = await fetch(
+          'https://nominatim.openstreetmap.org/search?q=' + q + '&format=json&limit=1',
+          { headers: { 'Accept-Language': 'pt-BR', 'User-Agent': 'InfinityWebMap/1.0' } }
+        );
+        var data = await res.json();
+        if (data[0]) {
+          var coords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+          geoSave(key, coords);
+          return coords;
+        }
+      } catch (e) { /* ignora */ }
+
+      /* 4. Fallback: centro de Cajamar */
+      return CENTER;
+    }
+
+    /* Cria o ícone HTML do marcador com cor dinâmica */
+    function makeIcon(status, isHQ) {
+      var s = STATUS[status] || STATUS.normal;
+      var iconHtml = isHQ ? 'fa-building' : s.icon;
+      return L.divIcon({
+        className: '',
+        html:
+          '<div class="iw-marker-pin" style="background:' + s.color + '">' +
+            '<i class="fas ' + iconHtml + '"></i>' +
+          '</div>' +
+          '<div class="iw-marker-pulse" style="box-shadow:0 0 0 0 ' + s.color + '88"></div>',
+        iconSize:    [40, 40],
+        iconAnchor:  [20, 40],
+        popupAnchor: [0, -44],
       });
+    }
 
-      /* Tiles OpenStreetMap — gratuito, sem chave de API */
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
-        maxZoom: 19,
-      }).addTo(map);
+    /* Cria o popup HTML de uma região */
+    function makePopup(name, status, aviso, cfg) {
+      var s     = STATUS[status] || STATUS.normal;
+      var wp    = cfg?.contato?.whatsapp || '5511964012136';
+      var wpd   = cfg?.contato?.whatsapp_display || '(11) 96401-2136';
+      var html  =
+        '<div style="font-family:sans-serif;min-width:180px">' +
+        '<strong style="font-size:.95rem">' + name + '</strong><br>' +
+        '<span style="color:' + s.color + ';font-weight:700;font-size:.82rem">' + s.label + '</span>';
 
-      /* Ícone personalizado nas cores da Infinity Web */
-      var markerIcon = L.divIcon({
-        className: 'iw-marker',
-        html: '<div class="iw-marker-pin"><i class="fas fa-wifi"></i></div><div class="iw-marker-pulse"></div>',
-        iconSize:   [40, 40],
-        iconAnchor: [20, 40],
-        popupAnchor:[0, -42],
+      if (aviso) {
+        html += '<hr style="margin:8px 0;border-color:#eee">' +
+          '<span style="font-size:.8rem;color:#555">' + aviso.mensagem + '</span>';
+      }
+
+      html += '<hr style="margin:8px 0;border-color:#eee">' +
+        '<a href="https://wa.me/' + wp + '" target="_blank" rel="noopener noreferrer" ' +
+        'style="color:#f97316;font-size:.82rem;font-weight:700">📱 WhatsApp ' + wpd + '</a>' +
+        '</div>';
+
+      return html;
+    }
+
+    /* Inicializa o mapa Leaflet */
+    var map = L.map('coverageMap', {
+      center:          CENTER,
+      zoom:            13,
+      scrollWheelZoom: false,
+      zoomControl:     true,
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
+      maxZoom: 19,
+    }).addTo(map);
+
+    /* Adiciona a legenda ao mapa */
+    function addLegend(statusSet) {
+      var existing = document.querySelector('.iw-map-legend');
+      if (existing) existing.remove();
+
+      var legend = L.control({ position: 'bottomright' });
+      legend.onAdd = function () {
+        var div = L.DomUtil.create('div', 'iw-map-legend');
+        var rows = '<div style="font-weight:700;margin-bottom:6px;font-size:.82rem">Status da Rede</div>';
+        statusSet.forEach(function (st) {
+          var s = STATUS[st] || STATUS.normal;
+          rows += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:.78rem">' +
+            '<span style="width:10px;height:10px;border-radius:50%;background:' + s.color + ';flex-shrink:0"></span>' +
+            s.label + '</div>';
+        });
+        div.innerHTML = rows;
+        return div;
+      };
+      legend.addTo(map);
+    }
+
+    /* ── Carrega site-config.json e renderiza marcadores dinâmicos ── */
+    fetch('/data/site-config.json?t=' + Date.now())
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(async function (cfg) {
+        var regioes  = cfg?.cobertura?.regioes || ['Jordanesia'];
+        var todosAv  = (cfg?.avisos || []).filter(function (a) { return a.ativo; });
+
+        /* Monta mapa: região → aviso de maior prioridade */
+        var regionStatus = {};
+        var regionAviso  = {};
+
+        todosAv.forEach(function (av) {
+          var targets = av.regiao === 'Todas as regiões' ? regioes : [av.regiao];
+          targets.forEach(function (r) {
+            var cur = PRIORITY[regionStatus[r]] || 0;
+            if ((PRIORITY[av.tipo] || 0) > cur) {
+              regionStatus[r] = av.tipo;
+              regionAviso[r]  = av;
+            }
+          });
+        });
+
+        /* Conjunto de status presentes (para legenda) */
+        var statusSet = ['normal'];
+        Object.values(regionStatus).forEach(function (s) {
+          if (!statusSet.includes(s)) statusSet.push(s);
+        });
+        addLegend(statusSet);
+
+        /* Geocodifica e plota cada região (com delay para respeitar Nominatim) */
+        for (var i = 0; i < regioes.length; i++) {
+          var nome   = regioes[i];
+          var status = regionStatus[nome] || 'normal';
+          var aviso  = regionAviso[nome]  || null;
+          var isHQ   = (i === 0); /* primeira região = sede */
+
+          var coords = await geocode(nome);
+
+          /* Marcador */
+          L.marker(coords, { icon: makeIcon(status, isHQ) })
+            .addTo(map)
+            .bindPopup(makePopup(nome, status, aviso, cfg), { maxWidth: 220 });
+
+          /* Círculo de cobertura colorido pelo status */
+          var s = STATUS[status] || STATUS.normal;
+          L.circle(coords, {
+            radius:      2200,
+            color:       s.color,
+            fillColor:   s.fill,
+            fillOpacity: 0.10,
+            weight:      2,
+            dashArray:   status === 'normal' ? null : '6 4',
+          }).addTo(map);
+
+          /* Aguarda 1s entre geocodificações (limite Nominatim) */
+          if (i < regioes.length - 1) await new Promise(function (r) { setTimeout(r, 1100); });
+        }
+
+        /* Ajusta o zoom para mostrar todos os marcadores */
+        if (regioes.length > 1) {
+          var bounds = regioes.map(function (nome) {
+            var key = nome.toLowerCase().trim();
+            return REGION_COORDS[key] || CENTER;
+          });
+          map.fitBounds(bounds, { padding: [40, 40] });
+        }
+      })
+      .catch(function () {
+        /* Fallback: marcador padrão */
+        L.marker(CENTER, { icon: makeIcon('normal', true) })
+          .addTo(map)
+          .bindPopup('<strong>Infinity Web</strong><br>Jordanesia — Cajamar-SP')
+          .openPopup();
       });
-
-      /* Marcador principal — sede da empresa */
-      L.marker([LAT, LNG], { icon: markerIcon })
-        .addTo(map)
-        .bindPopup(
-          '<strong>Infinity Web</strong><br>' +
-          'Rua Ver. Mário Marcolongo, 193<br>' +
-          'Jordanesia — Cajamar-SP<br>' +
-          '<a href="https://wa.me/5511964012136" target="_blank" rel="noopener noreferrer" style="color:#f97316">WhatsApp (11) 96401-2136</a>',
-          { maxWidth: 200 }
-        )
-        .openPopup();
-
-      /* Círculo indicando área de cobertura aproximada (~3 km de raio) */
-      L.circle([LAT, LNG], {
-        radius:      3000,
-        color:       '#1d4ed8',
-        fillColor:   '#3b82f6',
-        fillOpacity: 0.12,
-        weight:      2,
-      }).addTo(map);
-    })();
+  })();
   </script>
 
 </body>
