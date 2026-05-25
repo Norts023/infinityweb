@@ -208,8 +208,11 @@
 
     <form id="loginForm">
       <div class="form-group">
-        <label><i class="fas fa-lock"></i> Senha de Acesso</label>
-        <input type="password" id="loginPwd" placeholder="••••••••••••" autocomplete="current-password" required autofocus />
+        <label><i class="fab fa-github"></i> GitHub Personal Access Token</label>
+        <input type="password" id="loginPwd" placeholder="ghp_••••••••••••••••••••" autocomplete="current-password" required autofocus />
+        <small style="color:var(--gray-500);font-size:.75rem;margin-top:6px;display:block">
+          Gere em: GitHub → Settings → Developer settings → Personal access tokens → Fine-grained → Contents: Read & Write
+        </small>
       </div>
       <button type="submit" class="btn btn-primary btn-full" id="loginBtn">
         <i class="fas fa-sign-in-alt"></i> Entrar no Painel
@@ -411,52 +414,91 @@
 <script>
 'use strict';
 
-/* ── Estado global ─────────────────────────────────────── */
-let pwd    = '';
-let config = null;
-let sha    = null;
+/* ── Configuração do repositório ───────────────────────── */
+const GITHUB_REPO   = 'Norts023/infinityweb';
+const GITHUB_BRANCH = 'main';
+const CONFIG_PATH   = 'data/site-config.json';
 
-const API = '/api/admin';
+/* ── Estado global ─────────────────────────────────────── */
+let ghToken = '';
+let config  = null;
+let sha     = null;
+
+/* ── GitHub API helpers ────────────────────────────────── */
+function ghHeaders() {
+  return {
+    'Authorization': `token ${ghToken}`,
+    'Accept': 'application/vnd.github+json',
+    'Content-Type': 'application/json',
+  };
+}
+
+async function ghGetConfig() {
+  const res = await fetch(
+    `https://api.github.com/repos/${GITHUB_REPO}/contents/${CONFIG_PATH}?ref=${GITHUB_BRANCH}`,
+    { headers: ghHeaders() }
+  );
+  if (res.status === 401) throw new Error('Token inválido ou sem permissão.');
+  if (res.status === 404) throw new Error('Arquivo site-config.json não encontrado no repositório.');
+  if (!res.ok) throw new Error(`Erro GitHub: HTTP ${res.status}`);
+  const data = await res.json();
+  const text = atob(data.content.replace(/\n/g, ''));
+  return { config: JSON.parse(text), sha: data.sha };
+}
+
+async function ghSaveConfig(cfg, currentSha) {
+  const content = btoa(unescape(encodeURIComponent(JSON.stringify(cfg, null, 2))));
+  const res = await fetch(
+    `https://api.github.com/repos/${GITHUB_REPO}/contents/${CONFIG_PATH}`,
+    {
+      method: 'PUT',
+      headers: ghHeaders(),
+      body: JSON.stringify({
+        message: 'admin: atualiza site-config.json',
+        content,
+        sha: currentSha,
+        branch: GITHUB_BRANCH,
+      }),
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `Erro GitHub: HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  return data.content?.sha || currentSha;
+}
 
 /* ── Autenticação ──────────────────────────────────────── */
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const btn   = document.getElementById('loginBtn');
-  const alert = document.getElementById('loginAlert');
+  const alertEl = document.getElementById('loginAlert');
   const input = document.getElementById('loginPwd');
 
   btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Entrando...';
-  alert.style.display = 'none';
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando token...';
+  alertEl.style.display = 'none';
 
   try {
-    const res  = await fetch(API, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ password: input.value, action: 'read' }),
-    });
-    const data = await res.json();
-
-    if (!res.ok) throw new Error(data.error || 'Erro ao autenticar.');
-
-    pwd    = input.value;
-    config = data.config;
-    sha    = data.sha;
-    sessionStorage.setItem('iw_admin_pwd', pwd);
-
+    ghToken = input.value.trim();
+    const result = await ghGetConfig();
+    config = result.config;
+    sha    = result.sha;
+    sessionStorage.setItem('iw_admin_token', ghToken);
     openDashboard();
   } catch (err) {
-    alert.className = 'alert alert-error';
-    alert.textContent = '🔐 ' + err.message;
-    alert.style.display = 'block';
+    alertEl.className = 'alert alert-error';
+    alertEl.textContent = '🔐 ' + err.message;
+    alertEl.style.display = 'block';
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Entrar no Painel';
   }
 });
 
 function logout() {
-  sessionStorage.removeItem('iw_admin_pwd');
-  pwd = ''; config = null; sha = null;
+  sessionStorage.removeItem('iw_admin_token');
+  ghToken = ''; config = null; sha = null;
   document.getElementById('loginWrap').style.display = 'flex';
   document.getElementById('dashboard').classList.remove('active');
   document.getElementById('loginPwd').value = '';
@@ -465,7 +507,7 @@ function logout() {
 
 /* Auto-login com sessão salva */
 window.addEventListener('DOMContentLoaded', () => {
-  const saved = sessionStorage.getItem('iw_admin_pwd');
+  const saved = sessionStorage.getItem('iw_admin_token');
   if (saved) {
     document.getElementById('loginPwd').value = saved;
     document.getElementById('loginForm').dispatchEvent(new Event('submit'));
@@ -764,26 +806,17 @@ function syncContato() {
   };
 }
 
-/* ── Salvar via GitHub API ─────────────────────────────── */
+/* ── Salvar direto no GitHub ───────────────────────────── */
 async function save(section) {
   if (section === 'contato') syncContato();
 
   toast('Salvando no GitHub...', 'info');
 
   try {
-    const res  = await fetch(API, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ password: pwd, action: 'save', config, sha }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
-
-    if (data.sha) sha = data.sha;
-
+    sha = await ghSaveConfig(config, sha);
     const now = new Date().toLocaleTimeString('pt-BR');
     document.getElementById('savedAt').textContent = 'Publicado às ' + now;
-    toast('✅ Publicado! Deploy em andamento (~1 min)...', 'success');
+    toast('✅ Publicado! GitHub Pages atualiza em instantes.', 'success');
   } catch (err) {
     toast('Erro: ' + err.message, 'error');
   }
