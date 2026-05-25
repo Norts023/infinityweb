@@ -1071,12 +1071,15 @@
         var regioes  = cfg?.cobertura?.regioes || ['Jordanesia'];
         var todosAv  = (cfg?.avisos || []).filter(function (a) { return a.ativo; });
 
-        /* Monta mapa: região → aviso de maior prioridade */
+        /* Normaliza lista para sempre ter nomes como strings */
+        var nomes = regioes.map(function (r) { return typeof r === 'object' ? r.nome : r; });
+
+        /* Monta mapa: nome → aviso de maior prioridade */
         var regionStatus = {};
         var regionAviso  = {};
 
         todosAv.forEach(function (av) {
-          var targets = av.regiao === 'Todas as regiões' ? regioes : [av.regiao];
+          var targets = av.regiao === 'Todas as regiões' ? nomes : [av.regiao];
           targets.forEach(function (r) {
             var cur = PRIORITY[regionStatus[r]] || 0;
             if ((PRIORITY[av.tipo] || 0) > cur) {
@@ -1088,19 +1091,39 @@
 
         /* Conjunto de status presentes (para legenda) */
         var statusSet = ['normal'];
-        Object.values(regionStatus).forEach(function (s) {
+        nomes.forEach(function (nome) {
+          var s = regionStatus[nome] || 'normal';
           if (!statusSet.includes(s)) statusSet.push(s);
         });
         addLegend(statusSet);
 
         /* Geocodifica e plota cada região (com delay para respeitar Nominatim) */
+        var plotted = [];
         for (var i = 0; i < regioes.length; i++) {
-          var nome   = regioes[i];
+          /* Suporta tanto string simples quanto { nome, coords } (salvo pelo admin) */
+          var entry  = regioes[i];
+          var nome   = typeof entry === 'object' ? entry.nome : entry;
+          var stored = typeof entry === 'object' && Array.isArray(entry.coords) ? entry.coords : null;
+
           var status = regionStatus[nome] || 'normal';
           var aviso  = regionAviso[nome]  || null;
           var isHQ   = (i === 0); /* primeira região = sede */
 
-          var coords = await geocode(nome);
+          /* Usa coordenadas salvas pelo admin (sem chamar Nominatim) ou geocodifica */
+          var coords;
+          if (stored) {
+            coords = stored;
+          } else {
+            coords = await geocode(nome);
+            /* Aguarda 1s entre geocodificações (limite Nominatim) apenas quando necessário */
+            if (i < regioes.length - 1) {
+              var next = regioes[i + 1];
+              var nextHasCoords = typeof next === 'object' && Array.isArray(next.coords);
+              if (!nextHasCoords) await new Promise(function (r) { setTimeout(r, 1100); });
+            }
+          }
+
+          plotted.push(coords);
 
           /* Marcador */
           L.marker(coords, { icon: makeIcon(status, isHQ) })
@@ -1117,18 +1140,11 @@
             weight:      2,
             dashArray:   status === 'normal' ? null : '6 4',
           }).addTo(map);
-
-          /* Aguarda 1s entre geocodificações (limite Nominatim) */
-          if (i < regioes.length - 1) await new Promise(function (r) { setTimeout(r, 1100); });
         }
 
         /* Ajusta o zoom para mostrar todos os marcadores */
-        if (regioes.length > 1) {
-          var bounds = regioes.map(function (nome) {
-            var key = nome.toLowerCase().trim();
-            return REGION_COORDS[key] || CENTER;
-          });
-          map.fitBounds(bounds, { padding: [40, 40] });
+        if (plotted.length > 1) {
+          map.fitBounds(plotted, { padding: [40, 40] });
         }
       })
       .catch(function () {
