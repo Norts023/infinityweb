@@ -3,7 +3,7 @@
     "residencial": [
       {
         "id": "res-basico",
-        "nome": "Residencial Básico",
+        "nome": "Residencial Basico",
         "velocidade": "300 Mega",
         "preco": "99,99",
         "destaque": false
@@ -40,15 +40,28 @@
     "whatsapp_display": "(11) 96401-2136",
     "telefone": "(11) 99951-7145",
     "email": "sandro@webinfinity.com.br",
-    "endereco": "Rua Vereador Mário Marcolongo, 193, Jordanesia — Cajamar-SP"
+    "endereco": "Rua Vereador MÃ¡rio Marcolongo, 193, Jordanesia â Cajamar-SP"
   },
   "cobertura": {
     "regioes": [
       "Jordanesia",
       "Cajamar Centro",
-      "Região Industrial",
+      "RegiÃ£o Industrial",
       "Polvilho",
-      "Santana de parnaiba"
+      {
+        "nome": "Parque São Roberto 2",
+        "coords": [
+          -23.331309,
+          -46.82773
+        ]
+      },
+      {
+        "nome": "Malhada de Pedras",
+        "coords": [
+          -14.386629,
+          -41.879185
+        ]
+      }
     ]
   }
 }
