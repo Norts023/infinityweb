@@ -35,8 +35,8 @@
      CONSTANTES DE CONFIGURAÇÃO
   ===================================================================== */
 
-  /** URL do proxy server-side que repassa a mensagem à API Groq. */
-  var PROXY_URL = '/api/chat';
+  /** URL do Cloudflare Worker que repassa a mensagem à API Groq. */
+  var PROXY_URL = 'https://infinityweb.marcosestevosouza.workers.dev/';
 
   /**
    * Configuração do DOMPurify para saídas do bot.
