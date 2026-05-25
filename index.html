@@ -1065,7 +1065,7 @@
     }
 
     /* ── Carrega site-config.json e renderiza marcadores dinâmicos ── */
-    fetch('/data/site-config.json?t=' + Date.now())
+    fetch('data/site-config.json?t=' + Date.now())
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(async function (cfg) {
         var regioes  = cfg?.cobertura?.regioes || ['Jordanesia'];
