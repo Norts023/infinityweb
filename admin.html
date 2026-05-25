@@ -155,6 +155,26 @@
     .add-row input { flex: 1; background: var(--gray-700); border: 1px solid var(--gray-600); border-radius: 8px; padding: 10px 14px; color: var(--white); font-size: .9rem; outline: none; }
     .add-row input:focus { border-color: var(--blue-500); }
 
+    /* ── Autocomplete de região ── */
+    .region-search-wrap { position: relative; flex: 1; }
+    .region-dropdown {
+      position: absolute; top: calc(100% + 2px); left: 0; right: 0;
+      background: var(--gray-800); border: 1px solid var(--blue-500);
+      border-radius: 0 0 10px 10px; z-index: 200;
+      max-height: 240px; overflow-y: auto;
+      box-shadow: 0 8px 24px rgba(0,0,0,.4);
+    }
+    .region-opt {
+      padding: 11px 14px; cursor: pointer; border-bottom: 1px solid var(--gray-700);
+      transition: background .15s;
+    }
+    .region-opt:last-child { border-bottom: none; border-radius: 0 0 10px 10px; }
+    .region-opt:hover { background: rgba(37,99,235,.18); }
+    .region-opt strong { display: block; font-size: .88rem; color: var(--white); }
+    .region-opt small  { font-size: .74rem; color: var(--gray-400); margin-top: 2px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .region-opt.loading, .region-opt.empty { color: var(--gray-500); font-size: .85rem; cursor: default; }
+    .coords-badge { display: inline-flex; align-items: center; gap: 4px; font-size: .7rem; background: rgba(16,185,129,.15); color: var(--green); border-radius: 4px; padding: 1px 6px; margin-left: 6px; vertical-align: middle; }
+
     /* ── Status toast ── */
     .toast { position: fixed; bottom: 24px; right: 24px; background: var(--gray-800); border: 1px solid var(--gray-700); border-radius: 10px; padding: 13px 20px; font-size: .88rem; display: none; align-items: center; gap: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.5); z-index: 999; max-width: 340px; }
     .toast.show    { display: flex; }
@@ -349,11 +369,28 @@
           <p>Regiões onde o sinal está disponível. A IA usa esta lista quando clientes perguntam sobre cobertura.</p>
         </div>
         <div class="card">
-          <div class="card-title" style="margin-bottom:14px">Regiões atendidas</div>
+          <div class="card-title" style="margin-bottom:4px">Regiões atendidas</div>
+          <p style="font-size:.8rem;color:var(--gray-500);margin-bottom:14px">
+            <i class="fas fa-info-circle"></i>
+            Digite o nome do bairro para ver sugestões. As coordenadas são salvas automaticamente para o mapa.
+          </p>
           <div class="tags-wrap" id="regioesWrap"></div>
           <div class="add-row">
-            <input type="text" id="nRegCob" placeholder="Nome do novo bairro ou região" />
-            <button class="btn btn-primary" onclick="addRegiao()"><i class="fas fa-plus"></i> Adicionar</button>
+            <div class="region-search-wrap">
+              <input
+                type="text"
+                id="nRegCob"
+                placeholder="🔍 Ex: Jordanesia, Polvilho, Cajamar Centro..."
+                autocomplete="off"
+                oninput="onRegionInput(this.value)"
+                onkeydown="onRegionKey(event)"
+                style="width:100%;background:var(--gray-700);border:1px solid var(--gray-600);border-radius:8px;padding:10px 14px;color:var(--white);font-size:.9rem;outline:none;transition:border-color .2s"
+              />
+              <div class="region-dropdown" id="regionDropdown" style="display:none"></div>
+            </div>
+            <button class="btn btn-primary" onclick="addRegiao()">
+              <i class="fas fa-plus"></i> Adicionar
+            </button>
           </div>
         </div>
         <button class="btn btn-success" onclick="save('cobertura')">
@@ -536,13 +573,18 @@ function renderContato() {
 
 function renderCobertura() {
   const regioes = config?.cobertura?.regioes || [];
-  document.getElementById('regioesWrap').innerHTML = regioes.map((r, i) => `
-    <span class="tag">
+  document.getElementById('regioesWrap').innerHTML = regioes.map((r, i) => {
+    const nome   = typeof r === 'object' ? r.nome : r;
+    const coords = typeof r === 'object' && r.coords ? r.coords : null;
+    const badge  = coords
+      ? `<span class="coords-badge"><i class="fas fa-map-pin"></i> GPS</span>`
+      : '';
+    return `<span class="tag">
       <i class="fas fa-map-marker-alt" style="font-size:.7rem;opacity:.7"></i>
-      ${escHtml(r)}
+      ${escHtml(nome)}${badge}
       <button class="rm" onclick="delRegiao(${i})" title="Remover">×</button>
-    </span>
-  `).join('');
+    </span>`;
+  }).join('');
 }
 
 /* ── Ações — Avisos ────────────────────────────────────── */
@@ -575,18 +617,141 @@ function delAviso(i)    { config.avisos.splice(i, 1); renderAvisos(); }
 /* ── Ações — Cobertura ─────────────────────────────────── */
 function addRegiao() {
   const input = document.getElementById('nRegCob');
-  const val   = input.value.trim();
+  const val   = (_selectedRegion?.nome || input.value).trim();
   if (!val) return;
+
   if (!config.cobertura) config.cobertura = { regioes: [] };
-  if (!config.cobertura.regioes.includes(val)) {
-    config.cobertura.regioes.push(val);
-    renderCobertura();
-    toast('Região adicionada. Clique em "Publicar" para salvar.', 'info');
-  }
-  input.value = '';
+
+  // verifica duplicata por nome (case-insensitive)
+  const exists = config.cobertura.regioes.some(r =>
+    (typeof r === 'object' ? r.nome : r).toLowerCase() === val.toLowerCase()
+  );
+  if (exists) { toast('Região já cadastrada.', 'error'); return; }
+
+  const entry = _selectedRegion
+    ? { nome: _selectedRegion.nome, coords: _selectedRegion.coords }
+    : val;
+
+  config.cobertura.regioes.push(entry);
+  renderCobertura();
+  toast('Região adicionada. Clique em "Publicar" para salvar.', 'info');
+
+  input.value    = '';
+  _selectedRegion = null;
+  document.getElementById('regionDropdown').style.display = 'none';
 }
 
 function delRegiao(i) { config.cobertura.regioes.splice(i, 1); renderCobertura(); }
+
+/* ── Autocomplete de região (Nominatim / OpenStreetMap) ─── */
+let _selectedRegion = null;   // { nome, coords } | null
+let _regionDebounce = null;
+let _regionFocus    = -1;     // índice da opção em foco (teclado)
+
+function onRegionInput(val) {
+  _selectedRegion = null;
+  clearTimeout(_regionDebounce);
+  const dd = document.getElementById('regionDropdown');
+
+  if (!val || val.length < 2) { dd.style.display = 'none'; return; }
+
+  dd.innerHTML = '<div class="region-opt loading"><i class="fas fa-spinner fa-spin"></i> Buscando...</div>';
+  dd.style.display = 'block';
+  _regionFocus = -1;
+
+  _regionDebounce = setTimeout(() => _searchNominatim(val), 420);
+}
+
+async function _searchNominatim(q) {
+  const dd = document.getElementById('regionDropdown');
+  const headers = { 'Accept-Language': 'pt-BR', 'User-Agent': 'InfinityWebAdmin/1.0' };
+
+  try {
+    // Tenta primeiro com cidade + estado
+    let data = [];
+    for (const suffix of [', Cajamar, São Paulo, Brasil', ', São Paulo, Brasil', ', Brasil']) {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=br&q=${encodeURIComponent(q + suffix)}`;
+      const res = await fetch(url, { headers });
+      if (res.ok) data = await res.json();
+      if (data.length) break;
+      await new Promise(r => setTimeout(r, 300)); // respeita rate limit 1 req/s
+    }
+
+    if (!data.length) {
+      dd.innerHTML = '<div class="region-opt empty">Nenhum resultado encontrado. Adicione o nome manualmente.</div>';
+      return;
+    }
+
+    _regionFocus = -1;
+    dd.innerHTML = data.map((item, i) => {
+      const parts   = item.display_name.split(',');
+      const name    = parts[0].trim();
+      const details = parts.slice(1, 4).join(',').trim();
+      const lat     = parseFloat(item.lat).toFixed(6);
+      const lon     = parseFloat(item.lon).toFixed(6);
+      // Escapa para uso em atributo onclick
+      const safeName = name.replace(/'/g, "\\'");
+      return `<div class="region-opt" data-idx="${i}"
+        onclick="selectRegion('${safeName}', [${lat}, ${lon}])">
+        <strong>${escHtml(name)}</strong>
+        <small>${escHtml(details)} &nbsp;·&nbsp; 📍 ${lat}, ${lon}</small>
+      </div>`;
+    }).join('');
+  } catch (err) {
+    dd.innerHTML = '<div class="region-opt empty">Erro na busca. Verifique a conexão.</div>';
+  }
+}
+
+function selectRegion(name, coords) {
+  _selectedRegion = { nome: name, coords };
+  document.getElementById('nRegCob').value = name;
+  const dd = document.getElementById('regionDropdown');
+  dd.style.display = 'none';
+  _regionFocus = -1;
+  // Foco no botão Adicionar para facilitar o fluxo com teclado
+  document.querySelector('[onclick="addRegiao()"]')?.focus();
+}
+
+function onRegionKey(e) {
+  const dd   = document.getElementById('regionDropdown');
+  const opts = Array.from(dd.querySelectorAll('.region-opt:not(.loading):not(.empty)'));
+
+  if (e.key === 'Escape') {
+    dd.style.display = 'none';
+    _regionFocus = -1;
+    return;
+  }
+  if (!opts.length) { if (e.key === 'Enter') { e.preventDefault(); addRegiao(); } return; }
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _regionFocus = (_regionFocus + 1) % opts.length;
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _regionFocus = (_regionFocus - 1 + opts.length) % opts.length;
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (_regionFocus >= 0) opts[_regionFocus]?.click();
+    else addRegiao();
+    return;
+  } else {
+    return;
+  }
+
+  opts.forEach((o, i) => {
+    o.style.background = i === _regionFocus ? 'rgba(37,99,235,.28)' : '';
+  });
+  opts[_regionFocus]?.scrollIntoView({ block: 'nearest' });
+}
+
+// Fecha dropdown ao clicar fora da área de busca
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.region-search-wrap')) {
+    const dd = document.getElementById('regionDropdown');
+    if (dd) dd.style.display = 'none';
+    _regionFocus = -1;
+  }
+});
 
 /* ── Sync campos de contato para o config ──────────────── */
 function syncContato() {
