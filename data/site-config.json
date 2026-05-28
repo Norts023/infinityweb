@@ -12,15 +12,15 @@
         "id": "res-plus",
         "nome": "Residencial Plus",
         "velocidade": "400 Mega",
-        "preco": "119,99",
-        "destaque": true
+        "preco": "150.00",
+        "destaque": false
       },
       {
         "id": "res-ultra",
         "nome": "Residencial Ultra",
         "velocidade": "650 Mega",
         "preco": "159,99",
-        "destaque": false
+        "destaque": true
       }
     ]
   },
@@ -40,16 +40,16 @@
     "whatsapp_display": "(11) 96401-2136",
     "telefone": "(11) 99951-7145",
     "email": "sandro@webinfinity.com.br",
-    "endereco": "Rua Vereador MÃ¡rio Marcolongo, 193, Jordanesia â Cajamar-SP"
+    "endereco": "Rua Vereador MÃÂ¡rio Marcolongo, 193, Jordanesia Ã¢ÂÂ Cajamar-SP"
   },
   "cobertura": {
     "regioes": [
       "Jordanesia",
       "Cajamar Centro",
-      "RegiÃ£o Industrial",
+      "RegiÃÂ£o Industrial",
       "Polvilho",
       {
-        "nome": "Parque São Roberto 2",
+        "nome": "Parque SÃ£o Roberto 2",
         "coords": [
           -23.331309,
           -46.82773
